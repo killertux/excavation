@@ -2,12 +2,15 @@
 
 use macroquad::prelude::*;
 
+use crate::assets::ids::{BeastAnim, Direction, PlayerAnim};
 use crate::assets::Assets;
 use crate::config::{game::GameConfig, map::MapConfig};
+use crate::game::beast::Beast;
 use crate::game::camera::Camera;
 use crate::game::generation;
 use crate::game::map::Map;
 use crate::game::player::Player;
+use crate::game::terrain;
 use crate::game::TILE_SIZE;
 use crate::input;
 
@@ -29,6 +32,7 @@ pub struct App {
     assets: Assets,
     map: Map,
     player: Player,
+    beast: Beast,
     camera: Camera,
     state: GameState,
     /// Seconds to mine one rock (from game.toml).
@@ -45,12 +49,19 @@ impl App {
 
         let start = map.start_pos().expect("map must have a start door");
         let player = Player::new(tile_center(start.0 as f32, start.1 as f32), game_cfg.player.base_speed);
+        // The beast guards the exit door until the player digs a path to it.
+        let beast_pos = map
+            .exit_pos()
+            .map(|(x, y)| tile_center(x as f32, y as f32))
+            .unwrap_or_else(|| player.pos);
+        let beast = Beast::new(beast_pos);
         let camera = Camera::new(DEFAULT_ZOOM);
 
         App {
             assets: Assets::load().await,
             map,
             player,
+            beast,
             camera,
             state: GameState::Playing,
             mining_time: game_cfg.player.base_mining_time,
@@ -67,6 +78,7 @@ impl App {
         let input = input::collect();
         self.player
             .update(input.move_, input.mine, &mut self.map, self.mining_time, dt);
+        self.beast.update(self.player.pos, &self.map, dt);
 
         // Win when the player's cell is the exit door.
         if let Some(exit) = self.map.exit_pos() {
@@ -96,11 +108,12 @@ impl App {
         self.draw_scene(w as f32, h as f32, Some(fb.clone()));
     }
 
-    /// Clear the camera and draw the whole scene (tiles then player).
+    /// Clear the camera and draw the whole scene (tiles then entities).
     fn draw_scene(&mut self, view_w: f32, view_h: f32, render_target: Option<RenderTarget>) {
         set_camera(&self.scene_camera(view_w, view_h, render_target));
         clear_background(BG_COLOR);
         self.draw_tiles();
+        self.draw_beast();
         self.draw_player();
         set_default_camera();
     }
@@ -126,7 +139,14 @@ impl App {
         for y in 0..self.map.height {
             for x in 0..self.map.width {
                 let tile = self.map.tile(x as i32, y as i32);
-                let tex = self.assets.tile(tile.tile_id());
+                // Autotile: pick the atlas tile from the cell + cardinal
+                // neighbours so the floor shows edges where it meets rock/wall.
+                let n = self.map.tile(x as i32, y as i32 - 1);
+                let e = self.map.tile(x as i32 + 1, y as i32);
+                let s = self.map.tile(x as i32, y as i32 + 1);
+                let w = self.map.tile(x as i32 - 1, y as i32);
+                let (row, col) = terrain::tile_atlas(tile, n, e, s, w);
+                let tex = self.assets.tile(row, col);
                 draw_texture_ex(
                     tex,
                     x as f32 * TILE_SIZE,
@@ -141,8 +161,31 @@ impl App {
         }
     }
 
+    fn draw_beast(&self) {
+        let anim = BeastAnim {
+            dir: self.beast.dir(),
+            motion: self.beast.motion,
+        };
+        let tex = self.assets.beast_anim(anim);
+        let offset = TILE_SIZE / 2.0;
+        draw_texture_ex(
+            tex,
+            self.beast.pos.x - offset,
+            self.beast.pos.y - offset,
+            WHITE,
+            DrawTextureParams {
+                dest_size: Some(Vec2::new(TILE_SIZE, TILE_SIZE)),
+                ..Default::default()
+            },
+        );
+    }
+
     fn draw_player(&self) {
-        let tex = self.assets.player(self.player.anim);
+        let anim = PlayerAnim {
+            dir: Direction::from_vec2(self.player.facing),
+            motion: self.player.motion,
+        };
+        let tex = self.assets.player_anim(anim);
         // Center the 16×16 sprite on the player's hitbox center.
         let offset = TILE_SIZE / 2.0;
         draw_texture_ex(

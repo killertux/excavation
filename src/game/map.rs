@@ -1,11 +1,9 @@
 //! Map grid and tile types (pure, no rendering).
 
-use crate::assets::ids::TileId;
-
 /// One cell of the map grid. Each cell is a 16×16 px tile.
 ///
-/// Mineable and unmineable rocks are visually identical (both render `TileId::Rock`);
-/// the distinction is gameplay data, not appearance.
+/// Mineable and unmineable rocks are visually identical (both render the rock
+/// atlas fill); the distinction is gameplay data, not appearance.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tile {
     /// A diggable rock. Blocks movement until mined through.
@@ -36,18 +34,6 @@ impl Tile {
     /// Whether this tile can be mined (dug) by the player.
     pub fn mineable(self) -> bool {
         matches!(self, Tile::Mineable)
-    }
-
-    /// The terrain-atlas frame used to render this tile.
-    pub fn tile_id(self) -> TileId {
-        match self {
-            Tile::Mineable | Tile::Unmineable => TileId::Rock,
-            Tile::Excavated => TileId::Floor,
-            Tile::Wall => TileId::Wall,
-            Tile::Border => TileId::Border,
-            Tile::StartDoor => TileId::StartDoor,
-            Tile::ExitDoor => TileId::ExitDoorClosed,
-        }
     }
 }
 
@@ -144,18 +130,6 @@ mod tests {
         assert!(!Tile::Excavated.mineable());
         assert!(!Tile::StartDoor.mineable());
         assert!(!Tile::ExitDoor.mineable());
-    }
-
-    #[test]
-    fn tile_id_maps_only_jointly_for_rocks() {
-        // Both rock kinds share the identical Rock sprite.
-        assert_eq!(Tile::Mineable.tile_id(), TileId::Rock);
-        assert_eq!(Tile::Unmineable.tile_id(), TileId::Rock);
-        assert_eq!(Tile::Excavated.tile_id(), TileId::Floor);
-        assert_eq!(Tile::Wall.tile_id(), TileId::Wall);
-        assert_eq!(Tile::Border.tile_id(), TileId::Border);
-        assert_eq!(Tile::StartDoor.tile_id(), TileId::StartDoor);
-        assert_eq!(Tile::ExitDoor.tile_id(), TileId::ExitDoorClosed);
     }
 
     #[test]

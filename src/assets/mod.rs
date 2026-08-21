@@ -1,51 +1,68 @@
 //! Runtime asset loading: slice the PNG sheets and upload them to GPU textures.
 //!
-//! This is the thin GPU-facing layer. The pure slicing logic lives in
-//! [`layout`]; here we fetch the file bytes (portable across desktop and wasm
-//! via macroquad), decode them, slice to 16×16, and upload each frame to a
-//! [`Texture2D`].
+//! Each sheet is a uniform `rows × cols` grid; we crop every cell and upload it
+//! as a 16×16 [`Texture2D`], kept in row-major order so a `(row, col)` index
+//! linearly maps to `row * cols + col`.
 
 use macroquad::prelude::*;
 
-use crate::assets::ids::{PlayerAnim, TileId};
+use crate::assets::ids::{BeastAnim, PlayerAnim};
 
 pub mod ids;
 pub mod layout;
 
-/// All textures needed by the game, indexed by their id enums.
+/// Grid dimensions of each committed sheet.
+const TERRAIN_ROWS: usize = 7;
+const TERRAIN_COLS: usize = 6;
+const PLAYER_ROWS: usize = 4;
+const PLAYER_COLS: usize = 5;
+const BEAST_ROWS: usize = 4;
+const BEAST_COLS: usize = 3;
+
+/// All textures needed by the game, indexed by their (row, col) in each sheet.
 pub struct Assets {
     terrain: Vec<Texture2D>,
     player: Vec<Texture2D>,
+    beast: Vec<Texture2D>,
 }
 
 impl Assets {
-    /// Load and slice every sheet used in M1.
+    /// Load and slice every sheet.
     ///
-    /// Terrain tiles are ~square, so they are stretched to 16×16. The player
-    /// frames are portrait, so they are aspect-fitted (see the M1 plan risk #1:
-    /// start with `Fit` for character sheets to avoid squashing).
+    /// Terrain tiles tile seamlessly so they are stretched to 16×16. Character
+    /// frames are centered poses, so they are aspect-fitted to avoid squashing.
     pub async fn load() -> Assets {
         let terrain = load_sheet(
             "assets/images/tiles/terrain_atlas.png",
-            layout::SheetSpec::new(TileId::COUNT, layout::ScaleMode::Stretch),
+            layout::SheetSpec::new(TERRAIN_ROWS, TERRAIN_COLS, layout::ScaleMode::Stretch),
         )
         .await;
         let player = load_sheet(
             "assets/images/characters/player_sheet.png",
-            layout::SheetSpec::new(PlayerAnim::COUNT, layout::ScaleMode::Fit),
+            layout::SheetSpec::new(PLAYER_ROWS, PLAYER_COLS, layout::ScaleMode::Fit),
         )
         .await;
-        Assets { terrain, player }
+        let beast = load_sheet(
+            "assets/images/characters/beast_sheet.png",
+            layout::SheetSpec::new(BEAST_ROWS, BEAST_COLS, layout::ScaleMode::Fit),
+        )
+        .await;
+        Assets { terrain, player, beast }
     }
 
-    /// The terrain tile texture for the given id.
-    pub fn tile(&self, id: TileId) -> &Texture2D {
-        &self.terrain[id.index()]
+    /// The terrain tile texture at atlas `(row, col)`.
+    pub fn tile(&self, row: usize, col: usize) -> &Texture2D {
+        &self.terrain[row * TERRAIN_COLS + col]
     }
 
-    /// The player frame texture for the given animation.
-    pub fn player(&self, anim: PlayerAnim) -> &Texture2D {
-        &self.player[anim.index()]
+    /// The player frame for a directional pose.
+    pub fn player_anim(&self, anim: PlayerAnim) -> &Texture2D {
+        &self.player[anim.row() * PLAYER_COLS + anim.col()]
+    }
+
+    /// The beast frame for a directional pose.
+    pub fn beast_anim(&self, anim: BeastAnim) -> &Texture2D {
+        &self.beast[anim.row() * BEAST_COLS + anim.col()]
     }
 }
 

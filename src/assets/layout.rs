@@ -1,28 +1,21 @@
 //! Pure asset-sheet detection and slicing (no GPU, no macroquad).
 //!
-//! This module decodes an RGBA image, detects the frame/tile regions in a
-//! single-row atlas, trims each to its tight bounding box, and rescales the
-//! result to a 16×16 RGBA buffer. It is fully unit-testable without a window.
+//! This module decodes an RGBA image, splits it into a uniform `rows × cols`
+//! grid (the committed atlases are tightly-packed modular grids with no
+//! transparent gutters), crops each cell, and rescales the result to a 16×16
+//! RGBA buffer. It is fully unit-testable without a window.
 //!
 //! ## Layout model
 //!
-//! The committed sheets are **one row of frames, left-to-right, separated by
-//! transparent gutters**, with transparent vertical margins. Detection therefore
-//! works by scanning columns for opaque content, splitting on fully-transparent
-//! columns, then computing the tight bounding box of each run.
-//!
-//! Sheets that do not follow this model (e.g. the sparse particles sheet) must
-//! supply `SheetSpec::explicit_rects`.
+//! The committed sheets are production atlases packed as a uniform `rows × cols`
+//! grid, so detection splits each axis into equal cells and crops each cell.
+//! Sheets that are not a clean grid must supply `SheetSpec::explicit_rects`.
 
 use image::imageops::FilterType;
 use image::RgbaImage;
 
 /// Target tile size, in pixels (each axis).
 pub const TILE_SIZE: u32 = 16;
-
-/// A pixel is considered opaque for detection/trimming when its alpha is >=
-/// this. Robust against faint anti-aliasing while keeping all visible content.
-const OPAQUE_THRESHOLD: u8 = 32;
 
 /// How to map a cropped source region onto the 16×16 tile.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -51,8 +44,12 @@ impl Rect {
 /// A single sliced 16×16 RGBA frame.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Frame {
-    /// Zero-based index of the frame within its sheet (left-to-right).
+    /// Zero-based linear index of the frame within its sheet (`row * cols + col`).
     pub index: usize,
+    /// Source-grid row of this frame.
+    pub row: usize,
+    /// Source-grid column of this frame.
+    pub col: usize,
     /// 16×16 RGBA pixels, row-major, 4 bytes per pixel (`16*16*4 == 1024`).
     pub rgba: Vec<u8>,
 }
@@ -60,20 +57,20 @@ pub struct Frame {
 /// Description of how to slice one sheet.
 #[derive(Debug, Clone)]
 pub struct SheetSpec {
-    /// The number of frames/tiles this sheet must contain. Detection asserts the
-    /// found count matches, so a mis-detected sheet fails loudly.
-    pub expected_frames: usize,
-    /// Resize strategy applied to each detected/cropped region.
+    /// Number of grid rows.
+    pub rows: usize,
+    /// Number of grid columns.
+    pub cols: usize,
+    /// Resize strategy applied to each cropped cell.
     pub scale_mode: ScaleMode,
-    /// Optional explicit crop rects, in source-image coordinates. When present
-    /// these replace auto-detection (used for sheets that don't follow the
-    /// single-row-gutter layout).
+    /// Optional explicit crop rects, in source-image coordinates, in row-major
+    /// order. When present these replace auto grid-splitting.
     pub explicit_rects: Option<Vec<Rect>>,
 }
 
 impl SheetSpec {
-    pub fn new(expected_frames: usize, scale_mode: ScaleMode) -> Self {
-        SheetSpec { expected_frames, scale_mode, explicit_rects: None }
+    pub fn new(rows: usize, cols: usize, scale_mode: ScaleMode) -> Self {
+        SheetSpec { rows, cols, scale_mode, explicit_rects: None }
     }
 }
 
@@ -82,8 +79,6 @@ impl SheetSpec {
 pub enum LayoutError {
     /// The image contained no opaque content.
     NoContent,
-    /// Detected frame count did not match `SheetSpec::expected_frames`.
-    WrongFrameCount { expected: usize, found: usize },
     /// An explicit rect fell outside the image bounds.
     RectOutOfBounds { index: usize, rect: Rect, width: u32, height: u32 },
 }
@@ -92,9 +87,6 @@ impl std::fmt::Display for LayoutError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             LayoutError::NoContent => write!(f, "sheet has no opaque content"),
-            LayoutError::WrongFrameCount { expected, found } => {
-                write!(f, "expected {expected} frames, found {found}")
-            }
             LayoutError::RectOutOfBounds { index, rect, width, height } => {
                 write!(
                     f,
@@ -110,7 +102,7 @@ impl std::error::Error for LayoutError {}
 
 /// Slice `img` into 16×16 frames according to `spec`.
 ///
-/// Returns one `Frame` per detected/cropped region, in left-to-right order.
+/// Returns one `Frame` per grid cell, in row-major order (`row * cols + col`).
 pub fn detect_and_resize(img: &RgbaImage, spec: &SheetSpec) -> Result<Vec<Frame>, LayoutError> {
     let (width, height) = img.dimensions();
 
@@ -128,17 +120,15 @@ pub fn detect_and_resize(img: &RgbaImage, spec: &SheetSpec) -> Result<Vec<Frame>
             }
             rects.clone()
         }
-        None => detect_bboxes(img),
+        None => grid_rects(width, height, spec.rows, spec.cols),
     };
 
     if rects.is_empty() {
         return Err(LayoutError::NoContent);
     }
-    if rects.len() != spec.expected_frames {
-        return Err(LayoutError::WrongFrameCount {
-            expected: spec.expected_frames,
-            found: rects.len(),
-        });
+    let expected = spec.rows * spec.cols;
+    if spec.explicit_rects.is_none() && rects.len() != expected {
+        return Err(LayoutError::NoContent);
     }
 
     Ok(rects
@@ -146,62 +136,23 @@ pub fn detect_and_resize(img: &RgbaImage, spec: &SheetSpec) -> Result<Vec<Frame>
         .enumerate()
         .map(|(index, r)| Frame {
             index,
+            row: index / spec.cols,
+            col: index % spec.cols,
             rgba: crop_and_resize(img, r, spec.scale_mode),
         })
         .collect())
 }
 
-/// Detect the tight bounding box of each content region in a single-row atlas.
-fn detect_bboxes(img: &RgbaImage) -> Vec<Rect> {
-    let (width, height) = img.dimensions();
-
-    // Per-column "has opaque content" flag.
-    let mut col_content = vec![false; width as usize];
-    for x in 0..width {
-        for y in 0..height {
-            if img.get_pixel(x, y)[3] >= OPAQUE_THRESHOLD {
-                col_content[x as usize] = true;
-                break;
-            }
-        }
-    }
-
-    let mut rects = Vec::new();
-    let mut x = 0u32;
-    while x < width {
-        if col_content[x as usize] {
-            let start = x;
-            while x < width && col_content[x as usize] {
-                x += 1;
-            }
-            let end = x - 1;
-
-            // Tight bounding box within this column run.
-            let mut minx = u32::MAX;
-            let mut miny = u32::MAX;
-            let mut maxx = 0u32;
-            let mut maxy = 0u32;
-            for cx in start..=end {
-                for cy in 0..height {
-                    if img.get_pixel(cx, cy)[3] >= OPAQUE_THRESHOLD {
-                        if cx < minx {
-                            minx = cx;
-                        }
-                        if cx > maxx {
-                            maxx = cx;
-                        }
-                        if cy < miny {
-                            miny = cy;
-                        }
-                        if cy > maxy {
-                            maxy = cy;
-                        }
-                    }
-                }
-            }
-            rects.push(Rect::new(minx, miny, maxx - minx + 1, maxy - miny + 1));
-        } else {
-            x += 1;
+/// Split `w × h` into a uniform `rows × cols` grid of crop rects (row-major).
+fn grid_rects(width: u32, height: u32, rows: usize, cols: usize) -> Vec<Rect> {
+    let mut rects = Vec::with_capacity(rows * cols);
+    for r in 0..rows {
+        let y0 = height * r as u32 / rows as u32;
+        let y1 = height * (r + 1) as u32 / rows as u32;
+        for c in 0..cols {
+            let x0 = width * c as u32 / cols as u32;
+            let x1 = width * (c + 1) as u32 / cols as u32;
+            rects.push(Rect::new(x0, y0, x1 - x0, y1 - y0));
         }
     }
     rects
@@ -244,25 +195,50 @@ mod tests {
     }
 
     #[test]
-    fn terrain_sheet_detects_seven_tiles_16x16() {
+    fn terrain_sheet_slices_7x6_grid_16x16() {
         let img = load("assets/images/tiles/terrain_atlas.png");
-        let spec = SheetSpec::new(7, ScaleMode::Stretch);
+        let spec = SheetSpec::new(7, 6, ScaleMode::Stretch);
         let frames = detect_and_resize(&img, &spec).unwrap();
-        assert_eq!(frames.len(), 7);
+        assert_eq!(frames.len(), 42);
+        assert_eq!(frames[0].row, 0);
+        assert_eq!(frames[0].col, 0);
+        assert_eq!(frames[41].row, 6);
+        assert_eq!(frames[41].col, 5);
         for f in &frames {
             assert_eq!(f.rgba.len(), (TILE_SIZE * TILE_SIZE * 4) as usize);
         }
     }
 
     #[test]
-    fn player_sheet_detects_four_frames_16x16() {
+    fn player_sheet_slices_4x5_grid_16x16() {
         let img = load("assets/images/characters/player_sheet.png");
-        let spec = SheetSpec::new(4, ScaleMode::Fit);
+        let spec = SheetSpec::new(4, 5, ScaleMode::Fit);
         let frames = detect_and_resize(&img, &spec).unwrap();
-        assert_eq!(frames.len(), 4);
+        assert_eq!(frames.len(), 20);
         for f in &frames {
             assert_eq!(f.rgba.len(), (TILE_SIZE * TILE_SIZE * 4) as usize);
         }
+    }
+
+    #[test]
+    fn beast_sheet_slices_4x3_grid_16x16() {
+        let img = load("assets/images/characters/beast_sheet.png");
+        let spec = SheetSpec::new(4, 3, ScaleMode::Fit);
+        let frames = detect_and_resize(&img, &spec).unwrap();
+        assert_eq!(frames.len(), 12);
+    }
+
+    #[test]
+    fn grid_rows_are_row_major() {
+        let img = RgbaImage::new(30, 20);
+        let spec = SheetSpec::new(4, 5, ScaleMode::Stretch);
+        let frames = detect_and_resize(&img, &spec).unwrap();
+        // 4 rows x 5 cols; index 6 -> row 1, col 1.
+        assert_eq!(frames.len(), 20);
+        assert_eq!(frames[6].row, 1);
+        assert_eq!(frames[6].col, 1);
+        assert_eq!(frames[0].index, 0);
+        assert_eq!(frames[19].index, 19);
     }
 
     #[test]
@@ -272,44 +248,27 @@ mod tests {
         for (x, y, p) in img.enumerate_pixels_mut() {
             *p = image::Rgba([x as u8, y as u8, 255, 255]);
         }
-        let spec_stretch = SheetSpec::new(1, ScaleMode::Stretch);
+        let spec_stretch = SheetSpec::new(2, 2, ScaleMode::Stretch);
         let f = detect_and_resize(&img, &spec_stretch).unwrap();
-        assert_eq!(f.len(), 1);
+        assert_eq!(f.len(), 4);
         assert_eq!(f[0].rgba.len(), (TILE_SIZE * TILE_SIZE * 4) as usize);
 
         // Fit must also produce a 16x16 canvas with transparent padding.
-        let spec_fit = SheetSpec::new(1, ScaleMode::Fit);
-        let f = detect_and_resize(&img, &spec_fit).unwrap();
-        assert_eq!(f.len(), 1);
-        assert_eq!(f[0].rgba.len(), (TILE_SIZE * TILE_SIZE * 4) as usize);
+        let spec_fit = SheetSpec::new(2, 2, ScaleMode::Fit);
+        let f2 = detect_and_resize(&img, &spec_fit).unwrap();
+        assert_eq!(f2[0].rgba.len(), (TILE_SIZE * TILE_SIZE * 4) as usize);
 
         // Verify the two modes produce different bytes (Stretch fills the tile
         // fully; Fit leaves transparent padding on the wider axis).
-        assert_ne!(f[0].rgba, detect_and_resize(&img, &spec_stretch).unwrap()[0].rgba);
-    }
-
-    #[test]
-    fn wrong_expected_frames_errors() {
-        let img = load("assets/images/tiles/terrain_atlas.png");
-        let spec = SheetSpec::new(6, ScaleMode::Stretch); // wrong: actual is 7
-        assert_eq!(
-            detect_and_resize(&img, &spec),
-            Err(LayoutError::WrongFrameCount { expected: 6, found: 7 })
-        );
-    }
-
-    #[test]
-    fn empty_image_errors() {
-        let img = RgbaImage::new(16, 16); // fully transparent
-        let spec = SheetSpec::new(1, ScaleMode::Stretch);
-        assert_eq!(detect_and_resize(&img, &spec), Err(LayoutError::NoContent));
+        assert_ne!(f2[0].rgba, f[0].rgba);
     }
 
     #[test]
     fn explicit_rects_override_detection() {
         let img = load("assets/images/tiles/terrain_atlas.png");
         let spec = SheetSpec {
-            expected_frames: 2,
+            rows: 1,
+            cols: 2,
             scale_mode: ScaleMode::Stretch,
             explicit_rects: Some(vec![
                 Rect::new(53, 220, 241, 241),
@@ -327,7 +286,8 @@ mod tests {
         let img = load("assets/images/tiles/terrain_atlas.png");
         let (w, h) = img.dimensions();
         let spec = SheetSpec {
-            expected_frames: 1,
+            rows: 1,
+            cols: 1,
             scale_mode: ScaleMode::Stretch,
             explicit_rects: Some(vec![Rect::new(w, h, 10, 10)]),
         };

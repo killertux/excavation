@@ -415,3 +415,27 @@ built-in `rand`** (`macroquad::rand`, i.e. `quad-rand`):
   pass (M1 §15.3 risk).
 - `gold_*`/`beast_*` map fields are parsed but unused until M3/M4 (annotated
   `#[allow(dead_code)]`).
+
+---
+
+## 18. Sprite integration (new directional atlases)
+
+The sprite sheets were upgraded after M2 (see REQUIREMENTS §15.3): the terrain
+atlas is a 7×6 modular autotile grid, and the player/beast sheets are directional
+grids. This was integrated:
+
+- `layout`: split sheets into a uniform `rows × cols` grid (the old single-row
+  gutter detection no longer applies — production atlases are tightly packed).
+- `ids`: `Direction` (UP/DOWN/RIGHT/LEFT → sheet row), `PlayerMotion`
+  (idle/walk/mining → column), `BeastMotion`.
+- Terrain: `game::terrain` picks an atlas tile from a cell + its cardinal
+  neighbours (base fills row 0; floor↔rock/wall/border transition families).
+  The single-edge mapping is verified correct (rock edge renders on the exact
+  side the solid neighbour is on). Corner/concave tiles are approximate (the
+  shape→column mapping is empirical; tune [`transition_shape`]).
+- Player/beast: directional idle/walk/mining animations driven by facing +
+  motion. Added a `Beast` that chases the player (blocked by solids; it digs in
+  M3), guarding the exit door until the player digs a path.
+
+Verified: 73 tests pass; desktop screenshot shows the directional player + beast
+sprites and the terrain atlas rendering; wasm boots and fetches all three sheets.

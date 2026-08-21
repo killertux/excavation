@@ -5,20 +5,14 @@ use macroquad::prelude::Vec2;
 
 use super::map::{Map, Tile};
 use super::mining::{self, Mining};
-use super::TILE_SIZE;
-use crate::assets::ids::PlayerAnim;
-
-/// Half-extent of the player hitbox. The hitbox is a square slightly smaller
-/// than a tile (12×12 inside a 16×16 tile), so the player can slip through
-/// one-tile-wide openings.
-pub const HITBOX_HALF: f32 = 6.0;
+use super::movement;
+use crate::assets::ids::PlayerMotion;
 
 /// Seconds per walk-frame when moving (two-frame walk cycle).
 const WALK_FRAME_TIME: f32 = 0.25;
 
-/// Sub-step size used when resolving movement, kept below `HITBOX_HALF` so the
-/// player can never tunnel through a tile at any speed or dt.
-const MAX_SUBSTEP: f32 = TILE_SIZE / 4.0;
+/// Seconds per mining-frame (raise/impact pickaxe cycle).
+const MINE_FRAME_TIME: f32 = 0.15;
 
 #[derive(Debug, Clone)]
 pub struct Player {
@@ -26,8 +20,9 @@ pub struct Player {
     pub pos: Vec2,
     /// Walk speed, px/s (from `game.toml`).
     pub speed: f32,
-    /// Current animation frame.
-    pub anim: PlayerAnim,
+    /// Current animation motion (idle/walk/mining). The direction comes from
+    /// [`Player::facing`] at render time.
+    pub motion: PlayerMotion,
     /// Facing direction (one of the 8 compass directions, normalized). Updated
     /// from the last non-zero move intent; stable while mining.
     pub facing: Vec2,
@@ -41,7 +36,7 @@ impl Player {
         Player {
             pos,
             speed,
-            anim: PlayerAnim::Idle,
+            motion: PlayerMotion::Idle,
             facing: Vec2::new(0.0, 1.0),
             mining: None,
             walk_anim_timer: 0.0,
@@ -90,7 +85,7 @@ impl Player {
             0.0
         };
         self.mining = Some(Mining { target, progress });
-        self.anim = PlayerAnim::Mining;
+        self.motion = PlayerMotion::Mine(((progress / MINE_FRAME_TIME) as u8) & 1);
         self.walk_anim_timer = 0.0;
 
         if progress >= mining_time {
@@ -104,97 +99,25 @@ impl Player {
         let moving = intent.length_squared() > 0.0;
         if moving {
             let step = intent.normalize() * (self.speed * dt);
-            self.move_axis(map, true, step.x);
-            self.move_axis(map, false, step.y);
+            movement::move_axis(&mut self.pos, map, true, step.x);
+            movement::move_axis(&mut self.pos, map, false, step.y);
 
             // Two-frame walk animation.
             self.walk_anim_timer += dt;
             let frame = (self.walk_anim_timer / WALK_FRAME_TIME) as usize % 2;
-            self.anim = if frame == 0 { PlayerAnim::Walk1 } else { PlayerAnim::Walk2 };
+            self.motion = PlayerMotion::Walk(frame as u8);
         } else {
-            self.anim = PlayerAnim::Idle;
+            self.motion = PlayerMotion::Idle;
             self.walk_anim_timer = 0.0;
         }
-    }
-
-    /// Move along a single axis, sub-stepping and resolving collisions.
-    fn move_axis(&mut self, map: &Map, horizontal: bool, amount: f32) {
-        if amount == 0.0 {
-            return;
-        }
-        let steps = ((amount.abs() / MAX_SUBSTEP).ceil().max(1.0)) as u32;
-        let sub = amount / steps as f32;
-        for _ in 0..steps {
-            if horizontal {
-                self.pos.x += sub;
-            } else {
-                self.pos.y += sub;
-            }
-            self.resolve_overlaps(map, horizontal);
-        }
-    }
-
-    /// Push the hitbox out of every solid tile it genuinely overlaps along the
-    /// given axis.
-    ///
-    /// A solid tile is only acted on if the hitbox **actually penetrates** it
-    /// (overlap > 0 on both axes). A tile the hitbox merely *touches* at a
-    /// boundary is ignored — otherwise a neighbouring border cell the player is
-    /// flush against (e.g. the cells beside a door on the border) would shove
-    /// the player the wrong way and let it clip through rocks / off the map.
-    /// Each penetrating tile is pushed toward the side the player's centre is
-    /// on; a few passes handle the occasional corner.
-    fn resolve_overlaps(&mut self, map: &Map, horizontal: bool) {
-        for _ in 0..4 {
-            if !self.push_out_one_pass(map, horizontal) {
-                break;
-            }
-        }
-    }
-
-    fn push_out_one_pass(&mut self, map: &Map, horizontal: bool) -> bool {
-        let half = HITBOX_HALF;
-        let min_col = ((self.pos.x - half) / TILE_SIZE).floor() as i32;
-        let max_col = ((self.pos.x + half) / TILE_SIZE).floor() as i32;
-        let min_row = ((self.pos.y - half) / TILE_SIZE).floor() as i32;
-        let max_row = ((self.pos.y + half) / TILE_SIZE).floor() as i32;
-
-        let mut pushed = false;
-        for row in min_row..=max_row {
-            for col in min_col..=max_col {
-                if !map.is_solid(col, row) {
-                    continue;
-                }
-                let left = col as f32 * TILE_SIZE;
-                let top = row as f32 * TILE_SIZE;
-                let right = left + TILE_SIZE;
-                let bottom = top + TILE_SIZE;
-
-                // Genuine overlap (strictly > 0) on BOTH axes; touching at a
-                // boundary yields 0 and is correctly ignored.
-                let ov_x = (self.pos.x + half).min(right) - (self.pos.x - half).max(left);
-                let ov_y = (self.pos.y + half).min(bottom) - (self.pos.y - half).max(top);
-                if ov_x <= 0.0 || ov_y <= 0.0 {
-                    continue;
-                }
-
-                if horizontal {
-                    let mid = (left + right) / 2.0;
-                    self.pos.x = if self.pos.x < mid { left - half } else { right + half };
-                } else {
-                    let mid = (top + bottom) / 2.0;
-                    self.pos.y = if self.pos.y < mid { top - half } else { bottom + half };
-                }
-                pushed = true;
-            }
-        }
-        pushed
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::movement::HITBOX_HALF;
     use super::*;
+    use crate::game::TILE_SIZE;
 
     const TEST_SPEED: f32 = 120.0;
 
@@ -274,17 +197,17 @@ mod tests {
         let (mut saw1, mut saw2) = (false, false);
         for _ in 0..120 {
             p.update(Vec2::new(1.0, 0.0), false, &mut map, 0.8, dt);
-            match p.anim {
-                PlayerAnim::Walk1 => saw1 = true,
-                PlayerAnim::Walk2 => saw2 = true,
-                other => panic!("expected a walk frame, got {other:?}"),
+            match p.motion {
+                PlayerMotion::Walk(0) => saw1 = true,
+                PlayerMotion::Walk(1) => saw2 = true,
+                other => panic!("expected a walk phase, got {other:?}"),
             }
         }
         assert!(saw1 && saw2);
         for _ in 0..5 {
             p.update(Vec2::ZERO, false, &mut map, 0.8, dt);
         }
-        assert_eq!(p.anim, PlayerAnim::Idle);
+        assert_eq!(p.motion, PlayerMotion::Idle);
     }
 
     #[test]
