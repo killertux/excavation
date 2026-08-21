@@ -51,17 +51,20 @@ impl Player {
     /// Advance the player by one frame.
     ///
     /// `intent` is an unnormalized move direction; `mine_held` is the mine
-    /// action. If `mine_held` and the player faces a mineable cell, the player
-    /// **stops moving** and mines: `progress` accrues over `mining_time` seconds,
-    /// then the cell becomes `Excavated`. Otherwise the player moves normally
-    /// and any mining state is cleared.
+    /// action. If a mine is already in progress and `mine_held` is true, the
+    /// player keeps mining the **same** cell (movement is ignored while mining,
+    /// so the facing/target stays stable — never re-aimed or aborted by pressing
+    /// a direction). Otherwise, if `mine_held` and the player faces a mineable
+    /// cell, a new mine begins: movement stops and `progress` accrues over
+    /// `mining_time` seconds, then the cell becomes `Excavated`. If nothing is
+    /// being mined, the player moves normally and any mining state is cleared.
     pub fn update(&mut self, intent: Vec2, mine_held: bool, map: &mut Map, mining_time: f32, dt: f32) {
-        if intent.length_squared() > 0.0 {
-            self.facing = intent.normalize();
-        }
-
         let target = if mine_held {
-            mining::mine_target(self.pos, self.facing, map)
+            match self.mining {
+                // Keep digging the current target; don't re-aim from movement.
+                Some(m) => Some(m.target),
+                None => mining::mine_target(self.pos, self.facing, map),
+            }
         } else {
             None
         };
@@ -70,6 +73,9 @@ impl Player {
             Some(t) => self.mine(t, map, mining_time, dt),
             None => {
                 self.mining = None;
+                if intent.length_squared() > 0.0 {
+                    self.facing = intent.normalize();
+                }
                 self.move_free(intent, map, dt);
             }
         }
@@ -124,50 +130,65 @@ impl Player {
             } else {
                 self.pos.y += sub;
             }
-            self.resolve_overlaps(map, horizontal, sub);
+            self.resolve_overlaps(map, horizontal);
         }
     }
 
-    /// Push the hitbox out of every solid tile it currently overlaps, along the
-    /// given axis, in the direction it moved (`dir` is the sign of that axis's
-    /// movement this step).
-    fn resolve_overlaps(&mut self, map: &Map, horizontal: bool, dir: f32) {
+    /// Push the hitbox out of every solid tile it genuinely overlaps along the
+    /// given axis.
+    ///
+    /// A solid tile is only acted on if the hitbox **actually penetrates** it
+    /// (overlap > 0 on both axes). A tile the hitbox merely *touches* at a
+    /// boundary is ignored — otherwise a neighbouring border cell the player is
+    /// flush against (e.g. the cells beside a door on the border) would shove
+    /// the player the wrong way and let it clip through rocks / off the map.
+    /// Each penetrating tile is pushed toward the side the player's centre is
+    /// on; a few passes handle the occasional corner.
+    fn resolve_overlaps(&mut self, map: &Map, horizontal: bool) {
+        for _ in 0..4 {
+            if !self.push_out_one_pass(map, horizontal) {
+                break;
+            }
+        }
+    }
+
+    fn push_out_one_pass(&mut self, map: &Map, horizontal: bool) -> bool {
         let half = HITBOX_HALF;
         let min_col = ((self.pos.x - half) / TILE_SIZE).floor() as i32;
         let max_col = ((self.pos.x + half) / TILE_SIZE).floor() as i32;
         let min_row = ((self.pos.y - half) / TILE_SIZE).floor() as i32;
         let max_row = ((self.pos.y + half) / TILE_SIZE).floor() as i32;
 
+        let mut pushed = false;
         for row in min_row..=max_row {
             for col in min_col..=max_col {
                 if !map.is_solid(col, row) {
                     continue;
                 }
-                if horizontal {
-                    if dir > 0.0 {
-                        let tile_left = col as f32 * TILE_SIZE;
-                        if self.pos.x + half > tile_left {
-                            self.pos.x = tile_left - half;
-                        }
-                    } else if dir < 0.0 {
-                        let tile_right = (col + 1) as f32 * TILE_SIZE;
-                        if self.pos.x - half < tile_right {
-                            self.pos.x = tile_right + half;
-                        }
-                    }
-                } else if dir > 0.0 {
-                    let tile_top = row as f32 * TILE_SIZE;
-                    if self.pos.y + half > tile_top {
-                        self.pos.y = tile_top - half;
-                    }
-                } else if dir < 0.0 {
-                    let tile_bottom = (row + 1) as f32 * TILE_SIZE;
-                    if self.pos.y - half < tile_bottom {
-                        self.pos.y = tile_bottom + half;
-                    }
+                let left = col as f32 * TILE_SIZE;
+                let top = row as f32 * TILE_SIZE;
+                let right = left + TILE_SIZE;
+                let bottom = top + TILE_SIZE;
+
+                // Genuine overlap (strictly > 0) on BOTH axes; touching at a
+                // boundary yields 0 and is correctly ignored.
+                let ov_x = (self.pos.x + half).min(right) - (self.pos.x - half).max(left);
+                let ov_y = (self.pos.y + half).min(bottom) - (self.pos.y - half).max(top);
+                if ov_x <= 0.0 || ov_y <= 0.0 {
+                    continue;
                 }
+
+                if horizontal {
+                    let mid = (left + right) / 2.0;
+                    self.pos.x = if self.pos.x < mid { left - half } else { right + half };
+                } else {
+                    let mid = (top + bottom) / 2.0;
+                    self.pos.y = if self.pos.y < mid { top - half } else { bottom + half };
+                }
+                pushed = true;
             }
         }
+        pushed
     }
 }
 
@@ -322,21 +343,80 @@ mod tests {
     }
 
     #[test]
-    fn changing_target_resets_progress() {
+    fn mining_is_not_retargeted_by_movement_input() {
         let mut map = open_map();
         map.set_tile(3, 2, Tile::Mineable);
         map.set_tile(1, 2, Tile::Mineable);
         let mut p = player_at_center();
-        // Mine the rock to the right for two frames (progress accrues).
+        // Begin mining the rock to the right for two frames (progress accrues).
         p.facing = Vec2::new(1.0, 0.0);
         p.update(Vec2::ZERO, true, &mut map, 0.8, 1.0 / 60.0);
         p.update(Vec2::ZERO, true, &mut map, 0.8, 1.0 / 60.0);
-        let first = p.mining.unwrap().progress;
-        assert!(first > 0.0, "progress should have accrued");
-        // Turn to face the other rock (a different target) without releasing.
-        p.facing = Vec2::new(-1.0, 0.0);
-        p.update(Vec2::ZERO, true, &mut map, 0.8, 1.0 / 60.0);
-        assert_eq!(p.mining.map(|m| m.target), Some((1, 2)));
-        assert!(p.mining.unwrap().progress < first, "progress reset on target change");
+        let before = p.mining.unwrap().progress;
+        assert!(before > 0.0);
+        // Press a direction while still holding mine: the mine target stays the
+        // same and progress keeps accruing (movement is ignored while mining).
+        p.update(Vec2::new(-1.0, 0.0), true, &mut map, 0.8, 1.0 / 60.0);
+        assert_eq!(p.mining.map(|m| m.target), Some((3, 2)), "target stable while mining");
+        assert!(p.mining.unwrap().progress > before, "progress keeps accruing");
+        // The player did not move despite the direction press (movement ignored).
+        assert_eq!(p.pos, center_of((2, 2)));
+    }
+
+    /// Fuzz: random movement (incl. rapid reversals, diagonals, variable dt)
+    /// against a real generated map must never tunnel through a solid tile or
+    /// leave the map. Reproduces the "player walks over rocks / off screen" bug.
+    #[test]
+    fn fuzz_never_tunnels_or_leaves_map_with_real_map() {
+        use crate::config::map::MapConfig;
+        use crate::game::generation::generate;
+        use macroquad::rand::RandGenerator;
+
+        let cfg = MapConfig::from_toml(
+            r#"
+                width = 30
+                height = 20
+                unmineable_count = 20
+                start_door = { x = 15, y = 19 }
+                exit_door  = { x = 5,  y = 0 }
+                visible_walls = [[8, 5], [9, 5], [10, 5]]
+            "#,
+        )
+        .expect("valid config");
+        let mut map = generate(&cfg, 12345).expect("generates");
+        let start = map.start_pos().expect("start");
+        let mut p = Player::new(center_of((start.0 as i32, start.1 as i32)), 120.0);
+
+        let map_w = map.width as f32 * TILE_SIZE;
+        let map_h = map.height as f32 * TILE_SIZE;
+        let mut rng = RandGenerator::new();
+        rng.srand(0xDEADBEEF);
+
+        for frame in 0..50_000 {
+            // Random direction incl. (0,0), diagonals, and cardinals.
+            let dx = rng.gen_range(-1i32, 2i32);
+            let dy = rng.gen_range(-1i32, 2i32);
+            // dt from 1ms to 100ms (also stress the sub-stepper).
+            let dt = rng.gen_range(1.0f32, 100.0) / 1000.0;
+            let mine = rng.gen_range(-1i32, 2i32) == 0;
+
+            p.update(Vec2::new(dx as f32, dy as f32), mine, &mut map, 0.8, dt);
+
+            let (x, y) = (p.pos.x, p.pos.y);
+            assert!(x.is_finite() && y.is_finite(), "NaN at frame {frame}: ({x},{y})");
+            // Center must never sit inside a solid cell (rock/wall/border).
+            let cx = (x / TILE_SIZE).floor() as i32;
+            let cy = (y / TILE_SIZE).floor() as i32;
+            assert!(
+                !map.is_solid(cx, cy),
+                "player centered inside solid cell ({cx},{cy}) at frame {frame} pos ({x},{y})"
+            );
+            // Hitbox must not overlap a solid tile by more than a hair either.
+            let in_bounds = x - HITBOX_HALF >= -0.01
+                && x + HITBOX_HALF <= map_w + 0.01
+                && y - HITBOX_HALF >= -0.01
+                && y + HITBOX_HALF <= map_h + 0.01;
+            assert!(in_bounds, "player left the map at frame {frame}: ({x},{y})");
+        }
     }
 }

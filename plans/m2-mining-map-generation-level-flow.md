@@ -400,6 +400,17 @@ built-in `rand`** (`macroquad::rand`, i.e. `quad-rand`):
 - Mining→floor and the `LEVEL COMPLETE` overlay are covered by unit tests; a full
   interactive visual pass (scripted input to dig to the exit) is deferred until a
   scripted screenshot mode is worth building.
+- **Collision fix (from user testing):** the original `resolve_overlaps` pushed
+  the player purely by movement sign, so a solid cell the hitbox merely *touched*
+  (e.g. the border cells beside a door on the map edge) shoved the player the
+  wrong way — clipping it through rocks and off the map. Rewritten to only act on
+  cells the hitbox *actually penetrates* (overlap > 0 on both axes) and to push
+  toward the side the player's centre is on. Guarded by a 50k-frame fuzz test
+  (`fuzz_never_tunnels_or_leaves_map_with_real_map`) asserting the player never
+  ends up inside a solid cell or out of bounds.
+- **Mining stability fix:** while a mine is in progress and the key is held, move
+  input no longer re-aims/aborts the mine (facing stays stable, per §9) — it
+  keeps digging the same cell and movement stays blocked.
 - Player sprite still uses `ScaleMode::Fit` (thin portrait) — revisit in a visual
   pass (M1 §15.3 risk).
 - `gold_*`/`beast_*` map fields are parsed but unused until M3/M4 (annotated
