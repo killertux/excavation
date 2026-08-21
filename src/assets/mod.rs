@@ -15,9 +15,9 @@ pub mod layout;
 const TERRAIN_ROWS: usize = 7;
 const TERRAIN_COLS: usize = 6;
 const PLAYER_ROWS: usize = 4;
-const PLAYER_COLS: usize = 5;
+const PLAYER_COLS: usize = 21; // idle + walk x10 + mine x10
 const BEAST_ROWS: usize = 4;
-const BEAST_COLS: usize = 3;
+const BEAST_COLS: usize = 11; // idle + walk x10
 
 /// All textures needed by the game, indexed by their (row, col) in each sheet.
 pub struct Assets {

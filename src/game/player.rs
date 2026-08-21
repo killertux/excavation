@@ -6,13 +6,13 @@ use macroquad::prelude::Vec2;
 use super::map::{Map, Tile};
 use super::mining::{self, Mining};
 use super::movement;
-use crate::assets::ids::PlayerMotion;
+use crate::assets::ids::{CYCLE_FRAMES, PlayerMotion};
 
-/// Seconds per walk-frame when moving (two-frame walk cycle).
-const WALK_FRAME_TIME: f32 = 0.25;
+/// Seconds per walk-frame when moving (ten-frame cycle).
+const WALK_FRAME_TIME: f32 = 0.08;
 
-/// Seconds per mining-frame (raise/impact pickaxe cycle).
-const MINE_FRAME_TIME: f32 = 0.15;
+/// Seconds per mining-frame (raise/impact pickaxe, ten-frame cycle).
+const MINE_FRAME_TIME: f32 = 0.05;
 
 #[derive(Debug, Clone)]
 pub struct Player {
@@ -85,7 +85,7 @@ impl Player {
             0.0
         };
         self.mining = Some(Mining { target, progress });
-        self.motion = PlayerMotion::Mine(((progress / MINE_FRAME_TIME) as u8) & 1);
+        self.motion = PlayerMotion::Mine(((progress / MINE_FRAME_TIME) as usize % CYCLE_FRAMES) as u8);
         self.walk_anim_timer = 0.0;
 
         if progress >= mining_time {
@@ -104,7 +104,7 @@ impl Player {
 
             // Two-frame walk animation.
             self.walk_anim_timer += dt;
-            let frame = (self.walk_anim_timer / WALK_FRAME_TIME) as usize % 2;
+            let frame = (self.walk_anim_timer / WALK_FRAME_TIME) as usize % CYCLE_FRAMES;
             self.motion = PlayerMotion::Walk(frame as u8);
         } else {
             self.motion = PlayerMotion::Idle;
@@ -198,8 +198,10 @@ mod tests {
         for _ in 0..120 {
             p.update(Vec2::new(1.0, 0.0), false, &mut map, 0.8, dt);
             match p.motion {
-                PlayerMotion::Walk(0) => saw1 = true,
-                PlayerMotion::Walk(1) => saw2 = true,
+                PlayerMotion::Walk(_) => {
+                    saw1 |= p.motion == PlayerMotion::Walk(0);
+                    saw2 |= p.motion == PlayerMotion::Walk(1);
+                }
                 other => panic!("expected a walk phase, got {other:?}"),
             }
         }

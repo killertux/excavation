@@ -51,9 +51,12 @@ impl Direction {
     }
 }
 
+/// Frames in a walk/mine cycle (kept consistent across all animations).
+pub const CYCLE_FRAMES: usize = 10;
+
 /// Player animation state (the "column" axis of the player sheet).
 ///
-/// `Walk`/`Mine` carry a phase (0 or 1) that alternates each frame.
+/// `Walk`/`Mine` carry a phase (0..[`CYCLE_FRAMES`]) that advances each frame.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PlayerMotion {
     Idle,
@@ -66,8 +69,8 @@ impl PlayerMotion {
     pub fn column(self) -> usize {
         match self {
             PlayerMotion::Idle => 0,
-            PlayerMotion::Walk(p) => 1 + (p & 1) as usize,
-            PlayerMotion::Mine(p) => 3 + (p & 1) as usize,
+            PlayerMotion::Walk(p) => 1 + (p as usize % CYCLE_FRAMES),
+            PlayerMotion::Mine(p) => 11 + (p as usize % CYCLE_FRAMES),
         }
     }
 }
@@ -100,7 +103,7 @@ impl BeastMotion {
     pub fn column(self) -> usize {
         match self {
             BeastMotion::Idle => 0,
-            BeastMotion::Walk(p) => 1 + (p & 1) as usize,
+            BeastMotion::Walk(p) => 1 + (p as usize % CYCLE_FRAMES),
         }
     }
 }
@@ -149,22 +152,26 @@ mod tests {
     fn player_motion_columns_match_sheet() {
         assert_eq!(PlayerMotion::Idle.column(), 0);
         assert_eq!(PlayerMotion::Walk(0).column(), 1);
-        assert_eq!(PlayerMotion::Walk(1).column(), 2);
-        assert_eq!(PlayerMotion::Mine(0).column(), 3);
-        assert_eq!(PlayerMotion::Mine(1).column(), 4);
+        assert_eq!(PlayerMotion::Walk(9).column(), 10);
+        assert_eq!(PlayerMotion::Mine(0).column(), 11);
+        assert_eq!(PlayerMotion::Mine(9).column(), 20);
+        // Phases wrap within the 10-frame cycle.
+        assert_eq!(PlayerMotion::Walk(10).column(), 1);
+        assert_eq!(PlayerMotion::Mine(10).column(), 11);
     }
 
     #[test]
     fn beast_motion_columns_match_sheet() {
         assert_eq!(BeastMotion::Idle.column(), 0);
         assert_eq!(BeastMotion::Walk(0).column(), 1);
-        assert_eq!(BeastMotion::Walk(1).column(), 2);
+        assert_eq!(BeastMotion::Walk(9).column(), 10);
+        assert_eq!(BeastMotion::Walk(10).column(), 1);
     }
 
     #[test]
     fn anim_row_col_combine() {
         let a = PlayerAnim { dir: Direction::Left, motion: PlayerMotion::Mine(1) };
         assert_eq!(a.row(), 3);
-        assert_eq!(a.col(), 4);
+        assert_eq!(a.col(), 12);
     }
 }

@@ -439,3 +439,21 @@ grids. This was integrated:
 
 Verified: 73 tests pass; desktop screenshot shows the directional player + beast
 sprites and the terrain atlas rendering; wasm boots and fetches all three sheets.
+
+### Post-M2 asset regeneration (via GameLab Studio MCP)
+
+The character sheets were regenerated from scratch with GameLab Studio (MCP) because
+the previous AI pixel art was unclear:
+
+- Player: image-generate a directional miner idle (down, then up/right/left with the
+  down idle as a style reference); a `generate_video` + `generate_spritesheet` walk
+  and mining animation per direction, keeping **all 10 frames** of each cycle.
+- Beast: same idle + walk pipeline (no mining pose; beast digging reuses particles).
+- Composed into sheets (`target/gen`) with adaptive chroma-key removal, replacing
+  `assets/images/characters/{player,beast}_sheet.png`.
+
+The game now uses directional animations with **10-frame cycles**:
+- Player sheet is 4 rows (Up/Down/Right/Left) x 21 cols (Idle, Walk x10, Mine x10);
+  `PlayerMotion::Walk(p)/Mine(p)` map to `1 + p % 10` / `11 + p % 10`.
+- Beast sheet is 4 x 11 (Idle, Walk x10); `BeastMotion::Walk(p)` -> `1 + p % 10`.
+- Timing constants (WALK_FRAME_TIME etc.) tuned for the 10-frame cycles.

@@ -10,13 +10,13 @@ use macroquad::prelude::Vec2;
 
 use super::map::Map;
 use super::movement;
-use crate::assets::ids::{BeastMotion, Direction};
+use crate::assets::ids::{BeastMotion, CYCLE_FRAMES, Direction};
 
 /// Beast walk speed, world px/s.
 pub const BEAST_SPEED: f32 = 70.0;
 
-/// Seconds per beast walk-frame (two-frame walk cycle).
-const WALK_FRAME_TIME: f32 = 0.3;
+/// Seconds per beast walk-frame (ten-frame cycle).
+const WALK_FRAME_TIME: f32 = 0.1;
 
 #[derive(Debug, Clone)]
 pub struct Beast {
@@ -52,7 +52,7 @@ impl Beast {
             movement::move_axis(&mut self.pos, map, false, step.y);
 
             self.walk_timer += dt;
-            let frame = (self.walk_timer / WALK_FRAME_TIME) as usize % 2;
+            let frame = (self.walk_timer / WALK_FRAME_TIME) as usize % CYCLE_FRAMES;
             self.motion = BeastMotion::Walk(frame as u8);
         } else {
             self.motion = BeastMotion::Idle;
