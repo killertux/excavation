@@ -265,3 +265,56 @@ sources via macroquad and returns one `Vec2` move intent.
    loader locally; verify early (task 11) rather than last.
 4. **Speed constant.** Hard-coded in M1 and moved into `game.toml` in M2; keep it
    in one named constant to make that move trivial.
+
+---
+
+## 15. Verification & Implementation Notes (recorded during M1)
+
+> Notes captured while building M1. Read these before starting later milestones —
+> they document reusable tooling and a framework gotcha that is easy to re-hit.
+
+### 15.1 Headless visual verification (`--screenshot`)
+
+The game can render a single frame to a PNG and exit, so the result can be
+**checked without a window/display** (works under software GL too):
+
+```
+cargo run -- --screenshot shot.png    # renders ~3 frames, saves shot.png, exits
+```
+
+This is desktop-only (screenshot export is not supported on web); the flag is
+`#[cfg(not(target_arch = "wasm32"))]`-gated. It renders the scene into a
+macroquad `RenderTarget` (not the live screen buffer) and reads it back with
+`fb.texture.get_texture_data().export_png(path)`. Use it to visually verify each
+milestone's output and to catch render regressions.
+
+### 15.2 macroquad `Camera2D::zoom` is NOT a magnification factor
+
+macroquad's `Camera2D::zoom` is a **clip-space scale** equal to
+`2 / visible_world_size` (see `Camera2D::from_display_rect`), **not** "screen px
+per world px". Passing a magnification like `0.2 = 2.0` directly collapses the
+visible world to ~1 px, so a single tile fills the screen (symptom: a flat,
+featureless colour field). To show the world at magnification `mag`, use:
+
+```
+zoom = (2.0 * mag / view_w, 2.0 * mag / view_h)   // view = screen size, in px
+```
+
+and set `target` to the centre of the visible world rect. When rendering to a
+`RenderTarget`, the Y component must be **negated** (macroquad flips the Y scale
+for render targets internally, but not for the default screen). See
+`src/app.rs::mq_zoom` and its unit tests.
+
+### 15.3 Open items / decisions
+
+- **Player sprite scale mode.** `player_sheet.png` frames are portrait
+  (~267–365 × ~560). M1 uses `ScaleMode::Fit`, so the sprite is aspect-preserving
+  but narrow (~8–10 px wide in a 16 px tile). Revisit `Stretch` vs `Fit` (or a
+  square centre-crop) during a visual pass — this was plan §14 risk #1.
+- **Gamepad deferred.** macroquad 0.4.16 (and miniquad 0.4.11) expose **no**
+  gamepad API; `input.rs` is keyboard-only and structured so a gamepad source can
+  be added later.
+- **Sparse sheets** (e.g. `dig_particles_sheet.png`) must use
+  `SheetSpec::explicit_rects` rather than auto-detection; auto-gutter detection
+  fragments on sheets with internal transparent columns (see `layout.rs`).
+

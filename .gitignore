@@ -1,2 +1,12 @@
 # macOS Finder metadata
 .DS_Store
+
+# Rust build artifacts
+/target
+/.cargo-home
+
+# WASM / web build artifacts
+*.wasm
+web/dist/
+web/assets/
+web/excavation.wasm
