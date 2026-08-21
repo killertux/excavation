@@ -412,25 +412,27 @@ mineable and unmineable rocks **by design** (they must look identical).
 
 ### 15.3 Asset File Paths
 
-All generated image assets are production source sheets/atlases. Frames and tiles
-are laid out left-to-right in the order described below; runtime loading should
-crop and scale them to the required 16×16 tile size. The same rock region in the
-terrain atlas is deliberately used for both mineable and unmineable rocks.
+All generated image assets are production source sheets/atlases. Runtime loading
+should crop and scale them to the required 16×16 tile size. The terrain atlas is
+a 6×7 modular grid: its base fills tile seamlessly in both axes, and every
+floor-transition family provides matching cardinal edges, convex corners, and
+concave corners at the same border thickness. The same light-rock region is
+deliberately used for both mineable and unmineable rocks.
 
 | Requirement asset | Project path | Atlas / frame order |
 | --- | --- | --- |
-| Player — idle | `assets/images/characters/player_sheet.png` | frame 1 |
-| Player — walk | `assets/images/characters/player_sheet.png` | frames 2–3 |
-| Player — mining | `assets/images/characters/player_sheet.png` | frame 4 |
-| Beast — idle | `assets/images/characters/beast_sheet.png` | frame 1 |
-| Beast — chase | `assets/images/characters/beast_sheet.png` | frames 2–3 |
-| Beast — digging | `assets/images/characters/beast_sheet.png` | frame 4 |
-| Rock | `assets/images/tiles/terrain_atlas.png` | tile 1 |
-| Excavated floor | `assets/images/tiles/terrain_atlas.png` | tile 2 |
-| Visible wall | `assets/images/tiles/terrain_atlas.png` | tile 3 |
-| Border | `assets/images/tiles/terrain_atlas.png` | tile 4 |
-| Start door | `assets/images/tiles/terrain_atlas.png` | tile 5 |
-| Exit door | `assets/images/tiles/terrain_atlas.png` | tiles 6–7 (closed/open) |
+| Player — idle | `assets/images/characters/player_sheet.png` | 4×5 grid: rows UP, DOWN, RIGHT, LEFT; column 1 = idle |
+| Player — walk | `assets/images/characters/player_sheet.png` | 4×5 grid: rows UP, DOWN, RIGHT, LEFT; columns 2–3 = distinct walk cycle |
+| Player — mining | `assets/images/characters/player_sheet.png` | 4×5 grid: rows UP, DOWN, RIGHT, LEFT; columns 4–5 = raise/impact pickaxe cycle |
+| Beast — idle | `assets/images/characters/beast_sheet.png` | 4×3 grid: rows UP, DOWN, RIGHT, LEFT; column 1 = idle |
+| Beast — chase | `assets/images/characters/beast_sheet.png` | 4×3 grid: rows UP, DOWN, RIGHT, LEFT; columns 2–3 = distinct walk cycle |
+| Beast — digging | `assets/images/effects/dig_particles_sheet.png` | optional; use shared dig particle effect |
+| Rock | `assets/images/tiles/terrain_atlas.png` | row 1, column 1 light-rock seamless fill; complete floor-to-light-rock transitions in rows 2–3 |
+| Excavated floor | `assets/images/tiles/terrain_atlas.png` | row 1, column 2 seamless fill; transition pieces in rows 2–7 |
+| Visible wall | `assets/images/tiles/terrain_atlas.png` | row 1, column 3 seamless fill; complete floor-to-masonry transitions in rows 6–7 |
+| Border | `assets/images/tiles/terrain_atlas.png` | row 1, column 4 seamless dark rocky exterior; complete floor-to-exterior transitions in rows 4–5 |
+| Start door | `assets/images/tiles/terrain_atlas.png` | row 1, column 5; embedded in rocky exterior |
+| Exit door | `assets/images/tiles/terrain_atlas.png` | row 2, column 1; embedded in rocky exterior |
 | Gold pickup | `assets/images/pickups/pickups_and_shop_icons_atlas.png` | sprite 1 |
 | Gem | `assets/images/pickups/pickups_and_shop_icons_atlas.png` | sprite 2 |
 | Super Pick icon | `assets/images/pickups/pickups_and_shop_icons_atlas.png` | sprite 3 |
