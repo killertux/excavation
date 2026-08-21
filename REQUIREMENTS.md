@@ -410,6 +410,60 @@ mineable and unmineable rocks **by design** (they must look identical).
 | SFX — purchase | One-shot | Shop buy. |
 | SFX — UI click | One-shot | Menu navigation. |
 
+### 15.3 Asset File Paths
+
+All generated image assets are production source sheets/atlases. Frames and tiles
+are laid out left-to-right in the order described below; runtime loading should
+crop and scale them to the required 16×16 tile size. The same rock region in the
+terrain atlas is deliberately used for both mineable and unmineable rocks.
+
+| Requirement asset | Project path | Atlas / frame order |
+| --- | --- | --- |
+| Player — idle | `assets/images/characters/player_sheet.png` | frame 1 |
+| Player — walk | `assets/images/characters/player_sheet.png` | frames 2–3 |
+| Player — mining | `assets/images/characters/player_sheet.png` | frame 4 |
+| Beast — idle | `assets/images/characters/beast_sheet.png` | frame 1 |
+| Beast — chase | `assets/images/characters/beast_sheet.png` | frames 2–3 |
+| Beast — digging | `assets/images/characters/beast_sheet.png` | frame 4 |
+| Rock | `assets/images/tiles/terrain_atlas.png` | tile 1 |
+| Excavated floor | `assets/images/tiles/terrain_atlas.png` | tile 2 |
+| Visible wall | `assets/images/tiles/terrain_atlas.png` | tile 3 |
+| Border | `assets/images/tiles/terrain_atlas.png` | tile 4 |
+| Start door | `assets/images/tiles/terrain_atlas.png` | tile 5 |
+| Exit door | `assets/images/tiles/terrain_atlas.png` | tiles 6–7 (closed/open) |
+| Gold pickup | `assets/images/pickups/pickups_and_shop_icons_atlas.png` | sprite 1 |
+| Gem | `assets/images/pickups/pickups_and_shop_icons_atlas.png` | sprite 2 |
+| Super Pick icon | `assets/images/pickups/pickups_and_shop_icons_atlas.png` | sprite 3 |
+| Sticky Smell icon | `assets/images/pickups/pickups_and_shop_icons_atlas.png` | sprite 4 |
+| Heart | `assets/images/pickups/pickups_and_shop_icons_atlas.png` | sprite 5 |
+| Walk Speed icon | `assets/images/pickups/pickups_and_shop_icons_atlas.png` | sprite 6 |
+| Mining Speed icon | `assets/images/pickups/pickups_and_shop_icons_atlas.png` | sprite 7 |
+| Lives icon | `assets/images/pickups/pickups_and_shop_icons_atlas.png` | sprite 8 |
+| Particles | `assets/images/effects/dig_particles_sheet.png` | frames 1–8 |
+| UI — button | `assets/images/ui/ui_atlas.png` | normal, hover, pressed 9-slice regions |
+| UI — panel | `assets/images/ui/ui_atlas.png` | panel 9-slice region |
+| UI — slider | `assets/images/ui/ui_atlas.png` | track and knob regions |
+| Cursor/selector | `assets/images/ui/ui_atlas.png` | final cursor region |
+| Title/logo | `assets/images/ui/title_logo.png` | complete image |
+| Menu background | `assets/images/backgrounds/menu_background.png` | complete image |
+| Music — menu | `assets/audio/music/menu_loop.wav` | loop |
+| Music — level | `assets/audio/music/level_loop.wav` | loop |
+| Music — chase | `assets/audio/music/chase_loop.wav` | loop |
+| SFX — dig | `assets/audio/sfx/sfx_dig.wav` | one-shot |
+| SFX — rock break | `assets/audio/sfx/sfx_rock_break.wav` | one-shot |
+| SFX — gold pickup | `assets/audio/sfx/sfx_gold_pickup.wav` | one-shot |
+| SFX — gem pickup | `assets/audio/sfx/sfx_gem_pickup.wav` | one-shot |
+| SFX — super pick | `assets/audio/sfx/sfx_super_pick.wav` | one-shot |
+| SFX — sticky smell | `assets/audio/sfx/sfx_sticky_smell.wav` | one-shot |
+| SFX — beast growl | `assets/audio/sfx/sfx_beast_growl.wav` | one-shot |
+| SFX — beast dig | `assets/audio/sfx/sfx_beast_dig.wav` | one-shot |
+| SFX — footsteps | `assets/audio/sfx/sfx_footstep.wav` | one-shot |
+| SFX — caught | `assets/audio/sfx/sfx_caught.wav` | one-shot |
+| SFX — level complete | `assets/audio/sfx/sfx_level_complete.wav` | one-shot |
+| SFX — game over | `assets/audio/sfx/sfx_game_over.wav` | one-shot |
+| SFX — purchase | `assets/audio/sfx/sfx_purchase.wav` | one-shot |
+| SFX — UI click | `assets/audio/sfx/sfx_ui_click.wav` | one-shot |
+
 ---
 
 ## 16. Testing Strategy
