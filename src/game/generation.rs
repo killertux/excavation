@@ -78,9 +78,16 @@ pub fn generate(config: &MapConfig, seed: u64) -> Result<Map, GenError> {
     place(&mut tiles, w, h, config.start_door.x, config.start_door.y, Tile::StartDoor);
     place(&mut tiles, w, h, config.exit_door.x, config.exit_door.y, Tile::ExitDoor);
 
-    // 3. Visible walls.
+    // 3. Visible walls (never covering a door — a walled door would make the
+    //    level unwinnable).
     for [vx, vy] in &config.visible_walls {
-        place(&mut tiles, w, h, *vx, *vy, Tile::Wall);
+        let (x, y) = (*vx, *vy);
+        if x >= 0 && y >= 0 && (x as usize) < w && (y as usize) < h {
+            let i = idx(w, x as usize, y as usize);
+            if tiles[i] != Tile::StartDoor && tiles[i] != Tile::ExitDoor {
+                tiles[i] = Tile::Wall;
+            }
+        }
     }
 
     // 4. Guaranteed corridor (protected from becoming unmineable).
@@ -267,6 +274,24 @@ mod tests {
             (15, 0),
             |x, y| matches!(map.tile(x, y), Tile::Mineable | Tile::Excavated | Tile::StartDoor | Tile::ExitDoor)
         ));
+    }
+
+    #[test]
+    fn wall_does_not_cover_a_door() {
+        let cfg = MapConfig::from_toml(
+            r#"
+                width = 30
+                height = 20
+                unmineable_count = 0
+                start_door = { x = 15, y = 19 }
+                exit_door  = { x = 5,  y = 0 }
+                visible_walls = [[5, 0], [15, 19]]
+            "#,
+        )
+        .expect("valid");
+        let map = generate(&cfg, 1).expect("generates");
+        assert_eq!(map.tile(5, 0), Tile::ExitDoor, "exit door not covered");
+        assert_eq!(map.tile(15, 19), Tile::StartDoor, "start door not covered");
     }
 
     #[test]

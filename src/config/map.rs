@@ -81,6 +81,11 @@ impl MapConfig {
                 self.exit_door
             )));
         }
+        if self.start_door == self.exit_door {
+            return Err(ConfigError::Validation(
+                "start_door and exit_door must be different cells".into(),
+            ));
+        }
         // The maximum number of rocks that can be unmineable is the interior cell
         // count (the border ring is off-limits). Exceeding it makes a valid map
         // impossible, so reject it here rather than failing at generation time.
@@ -188,5 +193,32 @@ mod tests {
             MapConfig::from_toml(s),
             Err(ConfigError::Validation(_))
         ));
+    }
+
+    #[test]
+    fn rejects_identical_start_and_exit_door() {
+        let s = r#"
+            width = 30
+            height = 20
+            unmineable_count = 0
+            start_door = { x = 15, y = 19 }
+            exit_door  = { x = 15, y = 19 }
+        "#;
+        assert!(matches!(
+            MapConfig::from_toml(s),
+            Err(ConfigError::Validation(_))
+        ));
+    }
+
+    #[test]
+    fn accepts_zero_unmineable_rocks() {
+        let s = r#"
+            width = 30
+            height = 20
+            unmineable_count = 0
+            start_door = { x = 15, y = 19 }
+            exit_door  = { x = 5,  y = 0 }
+        "#;
+        assert!(MapConfig::from_toml(s).is_ok());
     }
 }
