@@ -1,0 +1,18 @@
+# Level 1 — easy intro map. A seeded, reproducible level with few unmineable
+# rocks and a small visible wall cluster. The player must dig from the start
+# door (bottom) to the exit door (top).
+width = 30
+height = 20
+
+unmineable_count = 20
+gold_count = 8
+beast_count = 0
+beast_speed_multiplier = 1.0
+beast_mining_time_multiplier = 1.0
+
+start_door = { x = 15, y = 19 }
+exit_door  = { x = 5,  y = 0 }
+
+seed = 12345
+
+visible_walls = [[8, 5], [9, 5], [10, 5]]

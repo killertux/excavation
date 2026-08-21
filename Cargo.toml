@@ -6,3 +6,5 @@ edition = "2024"
 [dependencies]
 image = { version = "0.25.10", default-features = false, features = ["png"] }
 macroquad = "0.4.16"
+serde = { version = "1.0.229", features = ["derive"] }
+toml = "1.1.4"

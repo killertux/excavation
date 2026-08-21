@@ -3,11 +3,15 @@
 use crate::assets::ids::TileId;
 
 /// One cell of the map grid. Each cell is a 16×16 px tile.
+///
+/// Mineable and unmineable rocks are visually identical (both render `TileId::Rock`);
+/// the distinction is gameplay data, not appearance.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tile {
-    /// A rock. Looks identical whether mineable or unmineable (see requirements
-    /// §4.2). Blocks movement in M1.
-    Rock,
+    /// A diggable rock. Blocks movement until mined through.
+    Mineable,
+    /// A rock that looks exactly like a mineable one but cannot be dug.
+    Unmineable,
     /// An excavated (dug-out) cell — open floor.
     Excavated,
     /// A visible (decorative) wall — never mineable, blocks movement.
@@ -23,13 +27,21 @@ pub enum Tile {
 impl Tile {
     /// Whether this tile blocks player movement.
     pub fn solid(self) -> bool {
-        matches!(self, Tile::Rock | Tile::Wall | Tile::Border)
+        matches!(
+            self,
+            Tile::Mineable | Tile::Unmineable | Tile::Wall | Tile::Border
+        )
+    }
+
+    /// Whether this tile can be mined (dug) by the player.
+    pub fn mineable(self) -> bool {
+        matches!(self, Tile::Mineable)
     }
 
     /// The terrain-atlas frame used to render this tile.
     pub fn tile_id(self) -> TileId {
         match self {
-            Tile::Rock => TileId::Rock,
+            Tile::Mineable | Tile::Unmineable => TileId::Rock,
             Tile::Excavated => TileId::Floor,
             Tile::Wall => TileId::Wall,
             Tile::Border => TileId::Border,
@@ -73,6 +85,11 @@ impl Map {
         self.tile(x, y).solid()
     }
 
+    /// Number of cells occupied by a given tile kind.
+    pub fn count(&self, tile: Tile) -> usize {
+        self.tiles.iter().filter(|&&t| t == tile).count()
+    }
+
     /// Grid coordinates of the start door, if present.
     pub fn start_pos(&self) -> Option<(usize, usize)> {
         self.find(Tile::StartDoor)
@@ -95,52 +112,22 @@ impl Map {
     }
 }
 
-/// A hand-written placeholder map for M1.
-///
-/// 30×20 grid with a full border, a start door on the bottom edge, an exit door
-/// on the top edge, a pre-excavated walkable interior, and a few rocks and
-/// visible walls to exercise collision. No generation and no TOML yet.
-pub fn placeholder_map() -> Map {
-    const W: usize = 30;
-    const H: usize = 20;
-
-    let mut tiles = vec![Tile::Border; W * H];
-
-    // Interior is pre-excavated walkable floor.
-    for y in 1..H - 1 {
-        for x in 1..W - 1 {
-            tiles[y * W + x] = Tile::Excavated;
-        }
-    }
-
-    // Doors sit on the border. Player spawns at the start door; the exit is the
-    // goal (a path of excavated cells connects the two in this placeholder).
-    let start = (15, H - 1);
-    let exit = (5, 0);
-    tiles[start.1 * W + start.0] = Tile::StartDoor;
-    tiles[exit.1 * W + exit.0] = Tile::ExitDoor;
-
-    // Scattered rocks and a small wall cluster to exercise collision. These do
-    // not fully block the start->exit path (the interior is otherwise open).
-    let rocks = [(8, 5), (9, 5), (10, 5), (8, 6), (9, 6), (20, 10), (21, 10), (22, 10), (12, 14), (13, 14)];
-    for (x, y) in rocks {
-        tiles[y * W + x] = Tile::Rock;
-    }
-    let walls = [(25, 8), (26, 8), (25, 9)];
-    for (x, y) in walls {
-        tiles[y * W + x] = Tile::Wall;
-    }
-
-    Map { width: W, height: H, tiles }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    fn test_map() -> Map {
+        Map {
+            width: 5,
+            height: 5,
+            tiles: vec![Tile::Border; 25],
+        }
+    }
+
     #[test]
-    fn tile_solid_covers_rock_wall_border() {
-        assert!(Tile::Rock.solid());
+    fn tile_solid_covers_rocks_wall_border() {
+        assert!(Tile::Mineable.solid());
+        assert!(Tile::Unmineable.solid());
         assert!(Tile::Wall.solid());
         assert!(Tile::Border.solid());
         assert!(!Tile::Excavated.solid());
@@ -149,8 +136,21 @@ mod tests {
     }
 
     #[test]
-    fn tile_id_maps_to_expected_frames() {
-        assert_eq!(Tile::Rock.tile_id(), TileId::Rock);
+    fn mineable_is_only_true_for_mineable() {
+        assert!(Tile::Mineable.mineable());
+        assert!(!Tile::Unmineable.mineable());
+        assert!(!Tile::Wall.mineable());
+        assert!(!Tile::Border.mineable());
+        assert!(!Tile::Excavated.mineable());
+        assert!(!Tile::StartDoor.mineable());
+        assert!(!Tile::ExitDoor.mineable());
+    }
+
+    #[test]
+    fn tile_id_maps_only_jointly_for_rocks() {
+        // Both rock kinds share the identical Rock sprite.
+        assert_eq!(Tile::Mineable.tile_id(), TileId::Rock);
+        assert_eq!(Tile::Unmineable.tile_id(), TileId::Rock);
         assert_eq!(Tile::Excavated.tile_id(), TileId::Floor);
         assert_eq!(Tile::Wall.tile_id(), TileId::Wall);
         assert_eq!(Tile::Border.tile_id(), TileId::Border);
@@ -159,50 +159,40 @@ mod tests {
     }
 
     #[test]
-    fn placeholder_map_has_border_all_edges_and_doors() {
-        let m = placeholder_map();
-        assert_eq!(m.width, 30);
-        assert_eq!(m.height, 20);
-
-        let start = m.start_pos().expect("start door present");
-        let exit = m.exit_pos().expect("exit door present");
-
-        // The whole outer ring is a border, except the door cells themselves.
-        for x in 0..m.width as i32 {
-            let top = if (x as usize, 0) == exit { Tile::ExitDoor } else { Tile::Border };
-            assert_eq!(m.tile(x, 0), top);
-            let bottom = if (x as usize, m.height - 1) == start {
-                Tile::StartDoor
-            } else {
-                Tile::Border
-            };
-            assert_eq!(m.tile(x, m.height as i32 - 1), bottom);
-        }
-        for y in 0..m.height as i32 {
-            assert_eq!(m.tile(0, y), Tile::Border);
-            assert_eq!(m.tile(m.width as i32 - 1, y), Tile::Border);
-        }
-        // The interior corners are walkable (not border).
-        assert_eq!(m.tile(1, 1), Tile::Excavated);
-    }
-
-    #[test]
-    fn out_of_bounds_reads_as_border() {
-        let m = placeholder_map();
+    fn out_of_bounds_reads_as_solid_border() {
+        let m = test_map();
         assert_eq!(m.tile(-1, 0), Tile::Border);
         assert_eq!(m.tile(0, -1), Tile::Border);
-        assert_eq!(m.tile(m.width as i32, 0), Tile::Border);
-        assert_eq!(m.tile(0, m.height as i32), Tile::Border);
+        assert_eq!(m.tile(5, 0), Tile::Border);
+        assert_eq!(m.tile(0, 5), Tile::Border);
         assert!(m.is_solid(-1, 0));
         assert!(!m.in_bounds(-1, 0));
     }
 
     #[test]
+    fn set_tile_and_accessors_round_trip() {
+        let mut m = test_map();
+        m.set_tile(2, 2, Tile::Excavated);
+        assert_eq!(m.tile(2, 2), Tile::Excavated);
+        assert_eq!(m.count(Tile::Excavated), 1);
+        assert_eq!(m.count(Tile::Border), 24);
+    }
+
+    #[test]
     fn set_tile_panics_out_of_bounds() {
-        let mut m = placeholder_map();
+        let mut m = test_map();
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            m.set_tile(m.width as i32, 0, Tile::Rock);
+            m.set_tile(5, 0, Tile::Mineable);
         }));
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn find_doors() {
+        let mut m = test_map();
+        m.set_tile(0, 2, Tile::StartDoor);
+        m.set_tile(4, 2, Tile::ExitDoor);
+        assert_eq!(m.start_pos(), Some((0, 2)));
+        assert_eq!(m.exit_pos(), Some((4, 2)));
     }
 }

@@ -1,7 +1,8 @@
-//! Excavation — M1 entry point.
+//! Excavation — M2 entry point.
 //!
 //! Boots a 1280×720 window on desktop (or the WASM canvas in a browser), loads
-//! and slices the asset sheets, and runs the update/draw loop.
+//! and slices the asset sheets, loads `game.toml` + a map, and runs the
+//! update/draw loop.
 //!
 //! ## Visual verification (desktop only)
 //!
@@ -15,6 +16,7 @@ use macroquad::prelude::*;
 
 mod app;
 mod assets;
+mod config;
 mod game;
 mod input;
 

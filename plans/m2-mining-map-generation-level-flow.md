@@ -6,20 +6,25 @@
 > a fixed number of unmineable rocks and a guaranteed valid path. Unmineable
 > rocks block you and look exactly like mineable ones.
 
+> **STATUS (M2 done):** implemented and verified. The original `rand`/`getrandom`
+> dependency plan was changed (see §17) because getrandom breaks the wasm build;
+> M2 uses macroquad's built-in `rand` instead. Full 57-test suite + desktop
+> screenshot + wasm boot check all pass.
+
 ---
 
 ## 1. Outcome (acceptance checklist)
 
-- [ ] `assets/game.toml` is loaded; player speed and mining time come from it.
-- [ ] `assets/maps/level01.toml` (and one more sample) load and generate a valid map.
-- [ ] Generated maps have exactly `unmineable_count` unmineable rocks, correct
+- [x] `assets/game.toml` is loaded; player speed and mining time come from it.
+- [x] `assets/maps/level01.toml` (and one more sample) load and generate a valid map.
+- [x] Generated maps have exactly `unmineable_count` unmineable rocks, correct
       border/doors/visible walls, and a guaranteed mineable path start→exit.
-- [ ] The same `seed` reproduces the same map; a missing seed randomizes each run.
-- [ ] The player can mine a mineable rock (hold the mine key while adjacent);
+- [x] The same `seed` reproduces the same map; a missing seed randomizes each run.
+- [x] The player can mine a mineable rock (hold the mine key while adjacent);
       mining is timed, stops movement, and turns the rock into an excavated cell.
-- [ ] Unmineable rocks look identical and cannot be mined; walls/border never.
-- [ ] Reaching the exit door ends the level (placeholder "LEVEL COMPLETE" state).
-- [ ] All new unit tests pass (generation, mining, pathfinding, config).
+- [x] Unmineable rocks look identical and cannot be mined; walls/border never.
+- [x] Reaching the exit door ends the level (placeholder "LEVEL COMPLETE" state).
+- [x] All new unit tests pass (generation, mining, pathfinding, config).
 
 ---
 
@@ -304,18 +309,18 @@ fn collect() -> Input
 
 ## 15. Task List (ordered)
 
-- [ ] 1. Add `serde` (derive), `toml`, `rand` via `cargo add`.
-- [ ] 2. Create `config/` (`game.rs`, `map.rs`) + `ConfigError`; write `game.toml`.
-- [ ] 3. Split `Tile` into `Mineable`/`Unmineable`; update `solid/tile_id`; add `count`.
-- [ ] 4. Implement `pathfinding.rs` (A\* + `has_path`) + tests.
-- [ ] 5. Implement `generation.rs` (corridor + seeded unmineable flip) + tests.
-- [ ] 6. Write `assets/maps/level01.toml` and `level02.toml`.
-- [ ] 7. Implement `mining.rs` (`mine_target`) + mining state + tests.
-- [ ] 8. Extend `player.rs` (facing, mining state, gate movement) + tests.
-- [ ] 9. Extend `input.rs` (`Input { move_, mine }`).
-- [ ] 10. Wire `app.rs`: load config + map, `GameState`, exit detection, overlay.
-- [ ] 11. Remove `placeholder_map()` and update/remove its tests.
-- [ ] 12. Full `cargo test`; desktop run + `--screenshot` (verify mined rock →
+- [x] 1. Add `serde` (derive), `toml`, `rand` via `cargo add`.
+- [x] 2. Create `config/` (`game.rs`, `map.rs`) + `ConfigError`; write `game.toml`.
+- [x] 3. Split `Tile` into `Mineable`/`Unmineable`; update `solid/tile_id`; add `count`.
+- [x] 4. Implement `pathfinding.rs` (A\* + `has_path`) + tests.
+- [x] 5. Implement `generation.rs` (corridor + seeded unmineable flip) + tests.
+- [x] 6. Write `assets/maps/level01.toml` and `level02.toml`.
+- [x] 7. Implement `mining.rs` (`mine_target`) + mining state + tests.
+- [x] 8. Extend `player.rs` (facing, mining state, gate movement) + tests.
+- [x] 9. Extend `input.rs` (`Input { move_, mine }`).
+- [x] 10. Wire `app.rs`: load config + map, `GameState`, exit detection, overlay.
+- [x] 11. Remove `placeholder_map()` and update/remove its tests.
+- [x] 12. Full `cargo test`; desktop run + `--screenshot` (verify mined rock →
        floor, `LEVEL COMPLETE` overlay when reaching exit); WASM build/boot check.
 
 ---
@@ -337,3 +342,65 @@ fn collect() -> Input
    rejected rather than silently moved.
 6. **`LevelComplete` is a placeholder** (text overlay only); the real screen with
    score/gold is M5.
+
+---
+
+## 17. Implementation & Verification Notes
+
+### Dependency change vs the plan (§3)
+
+The plan proposed `cargo add rand`. `rand`'s default features pull `getrandom`,
+which **hard-compile-errors on `wasm32-unknown-unknown`** unless a JS backend is
+enabled, and enabling that backend pulls `wasm-bindgen` — which is incompatible
+with miniquad/macroquad's custom wasm loader (`mq_js_bundle.js` provides no
+`__wbindgen_*` glue). After testing both options, M2 instead uses **macroquad's
+built-in `rand`** (`macroquad::rand`, i.e. `quad-rand`):
+
+- It is a pure-Rust PRNG, so it works on desktop **and** wasm with no extra deps
+  and no wasm-bindgen.
+- Generation uses a **local** `RandGenerator` seeded via `srand(seed)` +
+  `shuffle_with_state`, **not** the global state — so `seed -> map` is exactly
+  reproducible even though unit tests run in parallel.
+- The per-run "randomize each run" seed comes from `miniquad::date::now()`
+  (wall-clock), which works on both platforms, **not** `rand::random`.
+
+`Cargo.toml` therefore gained only `serde`/`toml` (no `rand`/`getrandom`).
+
+### Implementation notes
+
+- `Tile::Rock` was split into `Tile::Mineable` / `Tile::Unmineable`; both render
+  the identical `TileId::Rock` sprite. `placeholder_map()` and its tests were
+  removed (generation from TOML replaces it).
+- `pathfinding` is a 4-neighbour grid A\* with a fixed neighbour order and FIFO
+  tie-breaking, so paths are deterministic (reproducible generation, reusable by
+  the beast AI in M3).
+- `generation::generate(config, seed)` is pure & seeded; it carves a guaranteed
+  start->exit corridor (protected from unmineable/walls) and asserts
+  `has_path` as a post-condition.
+
+### Verification performed
+
+- **Unit tests:** `cargo test` → **57 passed, 0 failed** (config parsing +
+  validation, generation shape/count/reproducibility/solvability across 40 seeds,
+  pathfinding around walls & full blocks, mining target selection, mining
+  completion/movement-gating/reset, player collision/animation, exit detection).
+  Also loads both committed sample maps
+  (`assets/maps/level01.toml`, `level02.toml`) from disk and confirms each
+  generates a solvable map.
+- **Desktop render:** `cargo run -- --screenshot shot.png` correctly renders the
+  generated map (rock field, border ring, top exit door, start door where the
+  player spawns, and the visible-wall cluster).
+- **Wasm boot:** served `web/` and booted the wasm headlessly; the server log
+  shows the wasm fetched `assets/game.toml`, `assets/maps/level01.toml`, and both
+  image sheets — proving `App::new` (config load + generation + asset load)
+  completes on the browser. No wasm-bindgen imports remain in the module.
+
+### Open items
+
+- Mining→floor and the `LEVEL COMPLETE` overlay are covered by unit tests; a full
+  interactive visual pass (scripted input to dig to the exit) is deferred until a
+  scripted screenshot mode is worth building.
+- Player sprite still uses `ScaleMode::Fit` (thin portrait) — revisit in a visual
+  pass (M1 §15.3 risk).
+- `gold_*`/`beast_*` map fields are parsed but unused until M3/M4 (annotated
+  `#[allow(dead_code)]`).

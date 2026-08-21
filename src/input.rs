@@ -1,20 +1,28 @@
-//! Input: gather a move intent from the keyboard.
+//! Input: gather a move vector and the mine action each frame.
 //!
-//! This returns a raw (unnormalized) direction vector; the player normalizes it
-//! internally so diagonals are not faster. Movement is the only input in M1.
+//! The move vector is raw (unnormalized); the player normalizes it internally so
+//! diagonals are not faster. `Input` is shaped so a gamepad source can be added
+//! later without changing the update loop.
 //!
 //! ## Gamepad
 //!
-//! The M1 plan calls for gamepad movement, but macroquad 0.4.16 (and its
-//! miniquad 0.4.11) expose **no** gamepad API (the macroquad input module's own
-//! header notes "gamepads soon"). Gamepad input is therefore deferred until a
-//! backend is available; the `move_intent` shape below is intentionally easy to
-//! extend with a gamepad source (combine vectors, then dead-zone).
+//! macroquad 0.4.16 (and its miniquad 0.4.11) expose **no** gamepad API (the
+//! macroquad input module's own header notes "gamepads soon"). Gamepad input is
+//! therefore deferred until a backend is available.
 
 use macroquad::prelude::*;
 
-/// Combine WASD/arrows (keyboard) into a single move vector.
-pub fn move_intent() -> Vec2 {
+/// A snapshot of player-relevant input for one frame.
+#[derive(Debug, Clone, Copy)]
+pub struct Input {
+    /// Movement intent (WASD/arrows), unnormalized. Zero when idle.
+    pub move_: Vec2,
+    /// Whether the mine action is currently held (Space or E).
+    pub mine: bool,
+}
+
+/// Collect the current frame's input.
+pub fn collect() -> Input {
     let mut v = Vec2::ZERO;
 
     if is_key_down(KeyCode::W) || is_key_down(KeyCode::Up) {
@@ -30,5 +38,7 @@ pub fn move_intent() -> Vec2 {
         v.x += 1.0;
     }
 
-    v
+    let mine = is_key_down(KeyCode::Space) || is_key_down(KeyCode::E);
+
+    Input { move_: v, mine }
 }

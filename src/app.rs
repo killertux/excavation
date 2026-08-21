@@ -3,8 +3,10 @@
 use macroquad::prelude::*;
 
 use crate::assets::Assets;
+use crate::config::{game::GameConfig, map::MapConfig};
 use crate::game::camera::Camera;
-use crate::game::map::{self, Map, Tile};
+use crate::game::generation;
+use crate::game::map::Map;
 use crate::game::player::Player;
 use crate::game::TILE_SIZE;
 use crate::input;
@@ -15,31 +17,63 @@ const DEFAULT_ZOOM: f32 = 2.0;
 /// Clear color (dark blue-grey) behind the map.
 const BG_COLOR: Color = Color::new(24.0 / 255.0, 24.0 / 255.0, 34.0 / 255.0, 1.0);
 
+/// Top-level game-state machine. M2 has just Playing and a placeholder
+/// LevelComplete; the real level-complete screen lands in M5.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GameState {
+    Playing,
+    LevelComplete,
+}
+
 pub struct App {
     assets: Assets,
     map: Map,
     player: Player,
     camera: Camera,
+    state: GameState,
+    /// Seconds to mine one rock (from game.toml).
+    mining_time: f32,
 }
 
 impl App {
     pub async fn new() -> App {
-        let map = map::placeholder_map();
-        let start = map.start_pos().expect("placeholder map must have a start door");
-        let player = Player::new(tile_center(start.0 as f32, start.1 as f32));
+        // Load config + a map, then generate + spawn.
+        let game_cfg = load_game_config().await;
+        let map_cfg = load_map_config("assets/maps/level01.toml").await;
+        let seed = generation::resolve_seed(&map_cfg);
+        let map = generation::generate(&map_cfg, seed).expect("level01 must generate a valid map");
+
+        let start = map.start_pos().expect("map must have a start door");
+        let player = Player::new(tile_center(start.0 as f32, start.1 as f32), game_cfg.player.base_speed);
         let camera = Camera::new(DEFAULT_ZOOM);
+
         App {
             assets: Assets::load().await,
             map,
             player,
             camera,
+            state: GameState::Playing,
+            mining_time: game_cfg.player.base_mining_time,
         }
     }
 
     /// Advance the simulation by `dt` seconds.
     pub fn update(&mut self, dt: f32) {
-        let intent = input::move_intent();
-        self.player.update(intent, &self.map, dt);
+        // In LevelComplete we freeze gameplay; the real screen is M5.
+        if self.state == GameState::LevelComplete {
+            return;
+        }
+
+        let input = input::collect();
+        self.player
+            .update(input.move_, input.mine, &mut self.map, self.mining_time, dt);
+
+        // Win when the player's cell is the exit door.
+        if let Some(exit) = self.map.exit_pos() {
+            if player_on_exit(self.player.pos, exit) {
+                self.state = GameState::LevelComplete;
+            }
+        }
 
         let map_w = self.map.width as f32 * TILE_SIZE;
         let map_h = self.map.height as f32 * TILE_SIZE;
@@ -50,6 +84,9 @@ impl App {
     /// Render one frame to the screen.
     pub fn draw(&mut self) {
         self.draw_scene(screen_width(), screen_height(), None);
+        if self.state == GameState::LevelComplete {
+            draw_level_complete_overlay(screen_width(), screen_height());
+        }
     }
 
     /// Render the scene into `fb` and leave it there for readback. Used by the
@@ -88,7 +125,7 @@ impl App {
     fn draw_tiles(&self) {
         for y in 0..self.map.height {
             for x in 0..self.map.width {
-                let tile: Tile = self.map.tile(x as i32, y as i32);
+                let tile = self.map.tile(x as i32, y as i32);
                 let tex = self.assets.tile(tile.tile_id());
                 draw_texture_ex(
                     tex,
@@ -121,9 +158,46 @@ impl App {
     }
 }
 
+/// Load and parse `assets/game.toml`.
+async fn load_game_config() -> GameConfig {
+    let toml = load_toml("assets/game.toml").await;
+    GameConfig::from_toml(&toml).expect("assets/game.toml must be valid")
+}
+
+/// Load and parse a map TOML at `path`.
+async fn load_map_config(path: &str) -> MapConfig {
+    let toml = load_toml(path).await;
+    MapConfig::from_toml(&toml).expect("map TOML must be valid")
+}
+
+async fn load_toml(path: &str) -> String {
+    let bytes = load_file(path).await.expect("config file should load");
+    String::from_utf8(bytes).expect("config should be valid UTF-8")
+}
+
 /// World-pixel center of the tile at grid coords `(tx, ty)`.
 fn tile_center(tx: f32, ty: f32) -> Vec2 {
     Vec2::new(tx * TILE_SIZE + TILE_SIZE / 2.0, ty * TILE_SIZE + TILE_SIZE / 2.0)
+}
+
+/// True when the player (a world-pixel position) is standing on the exit cell.
+fn player_on_exit(player_pos: Vec2, exit: (usize, usize)) -> bool {
+    let cell = (
+        (player_pos.x / TILE_SIZE).floor() as i32,
+        (player_pos.y / TILE_SIZE).floor() as i32,
+    );
+    cell == (exit.0 as i32, exit.1 as i32)
+}
+
+/// Draw a simple placeholder "LEVEL COMPLETE" overlay (M5 builds the real one).
+fn draw_level_complete_overlay(w: f32, h: f32) {
+    draw_rectangle(0.0, 0.0, w, h, Color::new(0.0, 0.0, 0.0, 0.6));
+    let font: f32 = 48.0;
+    let text = "LEVEL COMPLETE";
+    let m = measure_text(text, None, font as u16, 1.0);
+    let x = (w - m.width) / 2.0;
+    let y = (h + m.height) / 2.0 - 10.0;
+    draw_text(text, x, y, font, WHITE);
 }
 
 /// Convert our camera magnification (`mag` = screen px per world px) into the
@@ -148,11 +222,8 @@ mod tests {
     fn mq_zoom_converts_magnification_to_macroquad_scale() {
         // mag 2.0 on a 1280x720 view -> a 16px tile renders at 32px.
         let z = mq_zoom(2.0, 1280.0, 720.0, false);
-        // macroquad zoom.x = 2 / world_w = 2 / (1280/2) = 2/640.
         assert!((z.x - 2.0 / 640.0).abs() < 1e-5);
-        // screen (no render target): zoom.y positive.
         assert!((z.y - 2.0 / 360.0).abs() < 1e-5);
-        // render target flips the Y sign.
         let zrt = mq_zoom(2.0, 1280.0, 720.0, true);
         assert_eq!(zrt.x, z.x);
         assert!((zrt.y - (-2.0 / 360.0)).abs() < 1e-5);
@@ -160,14 +231,25 @@ mod tests {
 
     #[test]
     fn world_pixel_scale_equals_magnification() {
-        // The effective screen scale equals the magnification: a 16px world
-        // span must map to 32 screen px (macroquad NDC->screen is
-        // screen_delta = zoom * world_delta * screen_w / 2).
         let mag = 2.0;
         let vw = 1280.0;
         let z = mq_zoom(mag, vw, 720.0, false);
         let world_delta = 16.0;
         let screen_delta = (z.x * world_delta / 2.0) * vw;
         assert!((screen_delta - world_delta * mag).abs() < 1e-4);
+    }
+
+    #[test]
+    fn player_reaches_exit_only_on_the_exit_cell() {
+        // Standing at the center of the exit cell (5, 0).
+        assert!(player_on_exit(tile_center(5.0, 0.0), (5, 0)));
+        // Standing in an adjacent cell is not "on" the exit yet.
+        assert!(!player_on_exit(tile_center(5.0, 1.0), (5, 0)));
+        assert!(!player_on_exit(tile_center(4.0, 0.0), (5, 0)));
+        // Slightly off-center within the exit cell still counts (floor cell).
+        assert!(player_on_exit(
+            Vec2::new(5.0 * TILE_SIZE + 1.0, 0.0 * TILE_SIZE + 2.0),
+            (5, 0)
+        ));
     }
 }
