@@ -69,6 +69,9 @@ pub struct SheetSpec {
 }
 
 impl SheetSpec {
+    /// A uniform-grid spec (no explicit rects). Used by the grid-slicing tests
+    /// and the generic slice path; the atlas loader supplies explicit rects.
+    #[allow(dead_code)]
     pub fn new(rows: usize, cols: usize, scale_mode: ScaleMode) -> Self {
         SheetSpec { rows, cols, scale_mode, explicit_rects: None }
     }
@@ -195,37 +198,21 @@ mod tests {
     }
 
     #[test]
-    fn terrain_sheet_slices_7x6_grid_16x16() {
-        let img = load("assets/images/tiles/terrain_atlas.png");
-        let spec = SheetSpec::new(7, 6, ScaleMode::Stretch);
+    fn atlas_explicit_rects_slice_upwards() {
+        // The committed atlas is used with explicit rects (not a uniform grid),
+        // so slicing via explicit_rects is the operative path. Crop the dirt base
+        // cell (32 px at origin (0, 330)) and confirm it downscales to 16×16.
+        let img = load("assets/images/My project atlas.png");
+        let spec = SheetSpec {
+            rows: 1,
+            cols: 1,
+            scale_mode: ScaleMode::Stretch,
+            explicit_rects: Some(vec![Rect::new(0, 330, 32, 32)]),
+        };
         let frames = detect_and_resize(&img, &spec).unwrap();
-        assert_eq!(frames.len(), 42);
-        assert_eq!(frames[0].row, 0);
-        assert_eq!(frames[0].col, 0);
-        assert_eq!(frames[41].row, 6);
-        assert_eq!(frames[41].col, 5);
-        for f in &frames {
-            assert_eq!(f.rgba.len(), (TILE_SIZE * TILE_SIZE * 4) as usize);
-        }
-    }
-
-    #[test]
-    fn player_sheet_slices_4x5_grid_16x16() {
-        let img = load("assets/images/characters/player_sheet.png");
-        let spec = SheetSpec::new(4, 5, ScaleMode::Fit);
-        let frames = detect_and_resize(&img, &spec).unwrap();
-        assert_eq!(frames.len(), 20);
-        for f in &frames {
-            assert_eq!(f.rgba.len(), (TILE_SIZE * TILE_SIZE * 4) as usize);
-        }
-    }
-
-    #[test]
-    fn beast_sheet_slices_4x3_grid_16x16() {
-        let img = load("assets/images/characters/beast_sheet.png");
-        let spec = SheetSpec::new(4, 3, ScaleMode::Fit);
-        let frames = detect_and_resize(&img, &spec).unwrap();
-        assert_eq!(frames.len(), 12);
+        assert_eq!(frames.len(), 1);
+        assert_eq!(frames[0].index, 0);
+        assert_eq!(frames[0].rgba.len(), (TILE_SIZE * TILE_SIZE * 4) as usize);
     }
 
     #[test]
@@ -265,14 +252,14 @@ mod tests {
 
     #[test]
     fn explicit_rects_override_detection() {
-        let img = load("assets/images/tiles/terrain_atlas.png");
+        let img = load("assets/images/My project atlas.png");
         let spec = SheetSpec {
             rows: 1,
             cols: 2,
             scale_mode: ScaleMode::Stretch,
             explicit_rects: Some(vec![
-                Rect::new(53, 220, 241, 241),
-                Rect::new(350, 220, 241, 242),
+                Rect::new(0, 330, 32, 32), // dirt base
+                Rect::new(33, 330, 32, 32), // (unused cell to its right)
             ]),
         };
         let frames = detect_and_resize(&img, &spec).unwrap();
@@ -283,7 +270,7 @@ mod tests {
 
     #[test]
     fn explicit_rect_out_of_bounds_errors() {
-        let img = load("assets/images/tiles/terrain_atlas.png");
+        let img = load("assets/images/My project atlas.png");
         let (w, h) = img.dimensions();
         let spec = SheetSpec {
             rows: 1,

@@ -1,30 +1,33 @@
-//! Asset identifiers for the sheets loaded in M2 (directional atlases).
+//! Asset identifiers for the sheets loaded in M2 (the combined atlas).
 //!
-//! - The terrain atlas is a 7×6 modular grid (see [`crate::game::terrain`] for
-//!   the autotile selection).
-//! - The player sheet is a 4×5 grid: rows are UP, DOWN, RIGHT, LEFT; columns are
-//!   idle, walk×2, mining raise/impact×2.
-//! - The beast sheet is a 4×3 grid: rows are UP, DOWN, RIGHT, LEFT; columns are
-//!   idle, walk×2.
+//! Character sheets are laid out **rows = facing (Down, Up, Right, Left)** and
+//! columns = animation frames:
+//! - The miner row has 11 columns: `base`(0), `idle`×2 (1..2), `walk`×4 (3..6),
+//!   `mine`×4 (7..10).
+//! - The beast (dino) row has 5 columns: `base`(0), `walk`×4 (1..4).
+//!
+//! The atlas packs these 32 px cells; the asset layer downscales to 16 px. The
+//! `(row, col)` helpers here assume that ordering.
 
 use macroquad::prelude::Vec2;
 
-/// One of the four cardineal facing directions. Rows in the character sheets are
-/// laid out UP, DOWN, RIGHT, LEFT in that order.
+/// One of the four facing directions. Character-sheet rows are laid out
+/// **Down, Up, Right, Left** in that atlas order (the artist's Front, Back,
+/// Right, Left, where Front faces the camera = Down in a top-down game).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Direction {
-    Up,
     Down,
+    Up,
     Right,
     Left,
 }
 
 impl Direction {
-    /// Row index in a character sheet (UP, DOWN, RIGHT, LEFT order).
+    /// Row index in a character sheet (Down, Up, Right, Left order).
     pub fn index(self) -> usize {
         match self {
-            Direction::Up => 0,
-            Direction::Down => 1,
+            Direction::Down => 0,
+            Direction::Up => 1,
             Direction::Right => 2,
             Direction::Left => 3,
         }
@@ -51,26 +54,29 @@ impl Direction {
     }
 }
 
-/// Frames in a walk/mine cycle (kept consistent across all animations).
-pub const CYCLE_FRAMES: usize = 10;
+/// Frame counts per animation in the miner sheet.
+pub const IDLE_FRAMES: usize = 2;
+pub const WALK_FRAMES: usize = 4;
+pub const MINE_FRAMES: usize = 4;
 
-/// Player animation state (the "column" axis of the player sheet).
+/// Player animation state (the "column" axis of the miner sheet).
 ///
-/// `Walk`/`Mine` carry a phase (0..[`CYCLE_FRAMES`]) that advances each frame.
+/// Each variant carries a phase (0.. its frame count) that advances each frame.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PlayerMotion {
-    Idle,
+    Idle(u8),
     Walk(u8),
     Mine(u8),
 }
 
 impl PlayerMotion {
-    /// Column index in the player sheet.
+    /// Column index in the miner sheet.
     pub fn column(self) -> usize {
         match self {
-            PlayerMotion::Idle => 0,
-            PlayerMotion::Walk(p) => 1 + (p as usize % CYCLE_FRAMES),
-            PlayerMotion::Mine(p) => 11 + (p as usize % CYCLE_FRAMES),
+            // base at 0; idle (2) at 1..2, walk (4) at 3..6, mine (4) at 7..10.
+            PlayerMotion::Idle(p) => 1 + (p as usize % IDLE_FRAMES),
+            PlayerMotion::Walk(p) => 3 + (p as usize % WALK_FRAMES),
+            PlayerMotion::Mine(p) => 7 + (p as usize % MINE_FRAMES),
         }
     }
 }
@@ -92,6 +98,8 @@ impl PlayerAnim {
 }
 
 /// Beast animation state (the "column" axis of the beast sheet).
+///
+/// The beast has a single stopped sprite (`base`, column 0) and a 4-frame walk.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BeastMotion {
     Idle,
@@ -103,7 +111,7 @@ impl BeastMotion {
     pub fn column(self) -> usize {
         match self {
             BeastMotion::Idle => 0,
-            BeastMotion::Walk(p) => 1 + (p as usize % CYCLE_FRAMES),
+            BeastMotion::Walk(p) => 1 + (p as usize % WALK_FRAMES),
         }
     }
 }
@@ -141,37 +149,39 @@ mod tests {
     }
 
     #[test]
-    fn direction_row_order_is_up_down_right_left() {
-        assert_eq!(Direction::Up.index(), 0);
-        assert_eq!(Direction::Down.index(), 1);
+    fn direction_row_order_is_down_up_right_left() {
+        assert_eq!(Direction::Down.index(), 0);
+        assert_eq!(Direction::Up.index(), 1);
         assert_eq!(Direction::Right.index(), 2);
         assert_eq!(Direction::Left.index(), 3);
     }
 
     #[test]
     fn player_motion_columns_match_sheet() {
-        assert_eq!(PlayerMotion::Idle.column(), 0);
-        assert_eq!(PlayerMotion::Walk(0).column(), 1);
-        assert_eq!(PlayerMotion::Walk(9).column(), 10);
-        assert_eq!(PlayerMotion::Mine(0).column(), 11);
-        assert_eq!(PlayerMotion::Mine(9).column(), 20);
-        // Phases wrap within the 10-frame cycle.
-        assert_eq!(PlayerMotion::Walk(10).column(), 1);
-        assert_eq!(PlayerMotion::Mine(10).column(), 11);
+        assert_eq!(PlayerMotion::Idle(0).column(), 1);
+        assert_eq!(PlayerMotion::Idle(1).column(), 2);
+        assert_eq!(PlayerMotion::Walk(0).column(), 3);
+        assert_eq!(PlayerMotion::Walk(3).column(), 6);
+        assert_eq!(PlayerMotion::Mine(0).column(), 7);
+        assert_eq!(PlayerMotion::Mine(3).column(), 10);
+        // Phases wrap within their frame counts.
+        assert_eq!(PlayerMotion::Walk(4).column(), 3);
+        assert_eq!(PlayerMotion::Mine(4).column(), 7);
+        assert_eq!(PlayerMotion::Idle(2).column(), 1);
     }
 
     #[test]
     fn beast_motion_columns_match_sheet() {
         assert_eq!(BeastMotion::Idle.column(), 0);
         assert_eq!(BeastMotion::Walk(0).column(), 1);
-        assert_eq!(BeastMotion::Walk(9).column(), 10);
-        assert_eq!(BeastMotion::Walk(10).column(), 1);
+        assert_eq!(BeastMotion::Walk(3).column(), 4);
+        assert_eq!(BeastMotion::Walk(4).column(), 1);
     }
 
     #[test]
     fn anim_row_col_combine() {
-        let a = PlayerAnim { dir: Direction::Left, motion: PlayerMotion::Mine(1) };
+        let a = PlayerAnim { dir: Direction::Left, motion: PlayerMotion::Walk(1) };
         assert_eq!(a.row(), 3);
-        assert_eq!(a.col(), 12);
+        assert_eq!(a.col(), 4);
     }
 }

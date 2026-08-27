@@ -43,12 +43,12 @@ mod tests {
     use super::*;
     use crate::game::map::Tile;
 
-    /// 5x5 grid, border ring, interior excavated; helper to build one.
+    /// 5x5 grid, border ring, interior dirt; helper to build one.
     fn open_map() -> Map {
-        let mut m = Map { width: 5, height: 5, tiles: vec![Tile::Border; 25] };
+        let mut m = Map { width: 5, height: 5, tiles: vec![Tile::Unbreakable; 25], start: (0, 2), exit: (4, 2) };
         for y in 1..4 {
             for x in 1..4 {
-                m.tiles[y * 5 + x] = Tile::Excavated;
+                m.tiles[y * 5 + x] = Tile::Dirt;
             }
         }
         m
@@ -74,16 +74,18 @@ mod tests {
     }
 
     #[test]
-    fn returns_none_for_wall_border_excavated_and_out_of_bounds() {
+    fn returns_none_for_unmineable_unbreakable_dirt_and_out_of_bounds() {
         let mut map = open_map();
-        map.set_tile(3, 2, Tile::Wall);
+        map.set_tile(3, 2, Tile::Unmineable);
         assert_eq!(mine_target(center_of((2, 2)), Vec2::new(1.0, 0.0), &map), None);
 
-        map.set_tile(3, 2, Tile::Excavated);
+        map.set_tile(3, 2, Tile::Unbreakable);
         assert_eq!(mine_target(center_of((2, 2)), Vec2::new(1.0, 0.0), &map), None);
 
-        // Facing the border (out of bounds) from the edge.
-        map.set_tile(1, 4, Tile::Border); // bottom interior edge
+        map.set_tile(3, 2, Tile::Dirt);
+        assert_eq!(mine_target(center_of((2, 2)), Vec2::new(1.0, 0.0), &map), None);
+
+        // Facing the unbreakable border from the edge.
         assert_eq!(mine_target(center_of((1, 3)), Vec2::new(0.0, 1.0), &map), None);
         // Facing off the map at the very edge.
         assert_eq!(mine_target(center_of((0, 1)), Vec2::new(-1.0, 0.0), &map), None);

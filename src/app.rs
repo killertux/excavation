@@ -47,14 +47,11 @@ impl App {
         let seed = generation::resolve_seed(&map_cfg);
         let map = generation::generate(&map_cfg, seed).expect("level01 must generate a valid map");
 
-        let start = map.start_pos().expect("map must have a start door");
+        let start = map.start_pos();
         let player = Player::new(tile_center(start.0 as f32, start.1 as f32), game_cfg.player.base_speed);
-        // The beast guards the exit door until the player digs a path to it.
-        let beast_pos = map
-            .exit_pos()
-            .map(|(x, y)| tile_center(x as f32, y as f32))
-            .unwrap_or_else(|| player.pos);
-        let beast = Beast::new(beast_pos);
+        // The beast guards the exit gap until the player digs a path to it.
+        let (bx, by) = map.exit_pos();
+        let beast = Beast::new(tile_center(bx as f32, by as f32));
         let camera = Camera::new(DEFAULT_ZOOM);
 
         App {
@@ -80,11 +77,10 @@ impl App {
             .update(input.move_, input.mine, &mut self.map, self.mining_time, dt);
         self.beast.update(self.player.pos, &self.map, dt);
 
-        // Win when the player's cell is the exit door.
-        if let Some(exit) = self.map.exit_pos() {
-            if player_on_exit(self.player.pos, exit) {
-                self.state = GameState::LevelComplete;
-            }
+        // Win when the player's cell is the exit gap.
+        let exit = self.map.exit_pos();
+        if player_on_exit(self.player.pos, exit) {
+            self.state = GameState::LevelComplete;
         }
 
         let map_w = self.map.width as f32 * TILE_SIZE;
@@ -113,6 +109,7 @@ impl App {
         set_camera(&self.scene_camera(view_w, view_h, render_target));
         clear_background(BG_COLOR);
         self.draw_tiles();
+        self.draw_mining_effect();
         self.draw_beast();
         self.draw_player();
         set_default_camera();
@@ -139,26 +136,59 @@ impl App {
         for y in 0..self.map.height {
             for x in 0..self.map.width {
                 let tile = self.map.tile(x as i32, y as i32);
-                // Autotile: pick the atlas tile from the cell + cardinal
-                // neighbours so the floor shows edges where it meets rock/wall.
+                // Autotile: pick the terrain family + Wang tile from the cell and
+                // its cardinal neighbours so rock edges blend into differing
+                // materials. Dirt is always flat.
                 let n = self.map.tile(x as i32, y as i32 - 1);
                 let e = self.map.tile(x as i32 + 1, y as i32);
                 let s = self.map.tile(x as i32, y as i32 + 1);
                 let w = self.map.tile(x as i32 - 1, y as i32);
-                let (row, col) = terrain::tile_atlas(tile, n, e, s, w);
-                let tex = self.assets.tile(row, col);
-                draw_texture_ex(
-                    tex,
-                    x as f32 * TILE_SIZE,
-                    y as f32 * TILE_SIZE,
-                    WHITE,
-                    DrawTextureParams {
-                        dest_size: Some(Vec2::new(TILE_SIZE, TILE_SIZE)),
-                        ..Default::default()
-                    },
-                );
+                let sel = terrain::tile_atlas(tile, n, e, s, w);
+                let tex = self.assets.tile(sel);
+                self.draw_tile_at(tex, x as f32, y as f32);
             }
         }
+    }
+
+    fn draw_tile_at(&self, tex: &Texture2D, x: f32, y: f32) {
+        draw_texture_ex(
+            tex,
+            x * TILE_SIZE,
+            y * TILE_SIZE,
+            WHITE,
+            DrawTextureParams {
+                dest_size: Some(Vec2::new(TILE_SIZE, TILE_SIZE)),
+                ..Default::default()
+            },
+        );
+    }
+
+    /// Draw the rock-breaking burst over the cell currently being mined.
+    ///
+    /// The burst advances through its frames with the mine progress, and fades
+    /// out as the rock nears completion.
+    fn draw_mining_effect(&self) {
+        let Some(mine) = &self.player.mining else {
+            return;
+        };
+        let frames = self.assets.burst_frames();
+        let progress = (mine.progress / self.mining_time).clamp(0.0, 1.0);
+        let frame = (progress * frames as f32) as usize % frames;
+        let tex = self.assets.burst(frame);
+        // Slide the effect off the rock toward the player as it nears completion,
+        // and fade it out over the last 20%.
+        let push = progress * (TILE_SIZE * 0.4);
+        let alpha = 1.0 - (progress * 5.0).clamp(0.0, 1.0);
+        draw_texture_ex(
+            tex,
+            mine.target.0 as f32 * TILE_SIZE - push * 0.5,
+            mine.target.1 as f32 * TILE_SIZE - push * 0.5,
+            Color::new(1.0, 1.0, 1.0, alpha),
+            DrawTextureParams {
+                dest_size: Some(Vec2::new(TILE_SIZE, TILE_SIZE)),
+                ..Default::default()
+            },
+        );
     }
 
     fn draw_beast(&self) {

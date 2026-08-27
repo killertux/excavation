@@ -16,8 +16,11 @@ pub struct Pos {
 /// Fields marked with `#[serde(default)]` are optional and are expected from
 /// later milestones (`gold_*`, `beast_*`); M2 parses but does not yet use them.
 ///
-/// The `gold_*`/`beast_*` and `visible_walls` fields are read by M3/M4, so dead
+/// The `gold_*`/`beast_*` and `structures` fields are read by M3/M4, so dead
 /// code is allowed on the ones not consumed yet.
+///
+/// `start`/`exit` are the two **gaps in the border wall** (rendered as `Dirt`);
+/// the doors themselves were removed.
 #[derive(Debug, Clone, Deserialize)]
 #[allow(dead_code)]
 pub struct MapConfig {
@@ -39,16 +42,16 @@ pub struct MapConfig {
     /// Beast mining-time multiplier (used in M3).
     #[serde(default = "one")]
     pub beast_mining_time_multiplier: f32,
-    /// Spawn door, on the border.
-    pub start_door: Pos,
-    /// Exit door, on the border.
-    pub exit_door: Pos,
+    /// Start gap, on the border (a hole in the wall).
+    pub start: Pos,
+    /// Exit gap, on the border (a hole in the wall).
+    pub exit: Pos,
     /// Optional seed for reproducible generation; omit to randomize each run.
     #[serde(default)]
     pub seed: Option<u64>,
-    /// Optional decorative visible walls, as `[x, y]` cells.
+    /// Optional unbreakable internal structures, as `[x, y]` cells.
     #[serde(default)]
-    pub visible_walls: Vec<[i32; 2]>,
+    pub structures: Vec<[i32; 2]>,
 }
 
 fn one() -> f32 {
@@ -69,21 +72,21 @@ impl MapConfig {
                 "width and height must be > 0".into(),
             ));
         }
-        if !self.on_border(self.start_door) {
+        if !self.on_border(self.start) {
             return Err(ConfigError::Validation(format!(
-                "start_door {:?} is not on the border",
-                self.start_door
+                "start {:?} is not on the border",
+                self.start
             )));
         }
-        if !self.on_border(self.exit_door) {
+        if !self.on_border(self.exit) {
             return Err(ConfigError::Validation(format!(
-                "exit_door {:?} is not on the border",
-                self.exit_door
+                "exit {:?} is not on the border",
+                self.exit
             )));
         }
-        if self.start_door == self.exit_door {
+        if self.start == self.exit {
             return Err(ConfigError::Validation(
-                "start_door and exit_door must be different cells".into(),
+                "start and exit must be different cells".into(),
             ));
         }
         // The maximum number of rocks that can be unmineable is the interior cell
@@ -116,19 +119,19 @@ mod tests {
             width = 30
             height = 20
             unmineable_count = 20
-            start_door = { x = 15, y = 19 }
-            exit_door  = { x = 5,  y = 0 }
+            start = { x = 15, y = 19 }
+            exit  = { x = 5,  y = 0 }
             seed = 12345
-            visible_walls = [[8, 5], [9, 5]]
+            structures = [[8, 5], [9, 5]]
         "#;
         let cfg = MapConfig::from_toml(s).expect("valid map");
         assert_eq!(cfg.width, 30);
         assert_eq!(cfg.height, 20);
         assert_eq!(cfg.unmineable_count, 20);
-        assert_eq!(cfg.start_door, Pos { x: 15, y: 19 });
-        assert_eq!(cfg.exit_door, Pos { x: 5, y: 0 });
+        assert_eq!(cfg.start, Pos { x: 15, y: 19 });
+        assert_eq!(cfg.exit, Pos { x: 5, y: 0 });
         assert_eq!(cfg.seed, Some(12345));
-        assert_eq!(cfg.visible_walls, vec![[8, 5], [9, 5]]);
+        assert_eq!(cfg.structures, vec![[8, 5], [9, 5]]);
         // Optional fields default.
         assert_eq!(cfg.gold_count, 0);
         assert_eq!(cfg.beast_count, 0);
@@ -141,22 +144,22 @@ mod tests {
             width = 30
             height = 20
             unmineable_count = 20
-            start_door = { x = 15, y = 19 }
-            exit_door  = { x = 5,  y = 0 }
+            start = { x = 15, y = 19 }
+            exit  = { x = 5,  y = 0 }
         "#;
         let cfg = MapConfig::from_toml(s).expect("valid map");
         assert_eq!(cfg.seed, None);
-        assert!(cfg.visible_walls.is_empty());
+        assert!(cfg.structures.is_empty());
     }
 
     #[test]
-    fn rejects_off_border_door() {
+    fn rejects_off_border_gap() {
         let s = r#"
             width = 30
             height = 20
             unmineable_count = 20
-            start_door = { x = 15, y = 10 }
-            exit_door  = { x = 5,  y = 0 }
+            start = { x = 15, y = 10 }
+            exit  = { x = 5,  y = 0 }
         "#;
         assert!(matches!(
             MapConfig::from_toml(s),
@@ -170,8 +173,8 @@ mod tests {
             width = 4
             height = 4
             unmineable_count = 5
-            start_door = { x = 0, y = 2 }
-            exit_door  = { x = 3, y = 2 }
+            start = { x = 0, y = 2 }
+            exit  = { x = 3, y = 2 }
         "#;
         // Interior of a 4x4 map is 2x2 = 4 cells; 5 is impossible.
         assert!(matches!(
@@ -186,8 +189,8 @@ mod tests {
             width = 0
             height = 20
             unmineable_count = 0
-            start_door = { x = 0, y = 3 }
-            exit_door  = { x = 1, y = 0 }
+            start = { x = 0, y = 3 }
+            exit  = { x = 1, y = 0 }
         "#;
         assert!(matches!(
             MapConfig::from_toml(s),
@@ -196,13 +199,13 @@ mod tests {
     }
 
     #[test]
-    fn rejects_identical_start_and_exit_door() {
+    fn rejects_identical_start_and_exit_gap() {
         let s = r#"
             width = 30
             height = 20
             unmineable_count = 0
-            start_door = { x = 15, y = 19 }
-            exit_door  = { x = 15, y = 19 }
+            start = { x = 15, y = 19 }
+            exit  = { x = 15, y = 19 }
         "#;
         assert!(matches!(
             MapConfig::from_toml(s),
@@ -216,8 +219,8 @@ mod tests {
             width = 30
             height = 20
             unmineable_count = 0
-            start_door = { x = 15, y = 19 }
-            exit_door  = { x = 5,  y = 0 }
+            start = { x = 15, y = 19 }
+            exit  = { x = 5,  y = 0 }
         "#;
         assert!(MapConfig::from_toml(s).is_ok());
     }

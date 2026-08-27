@@ -1,11 +1,12 @@
 //! Seeded, deterministic map generation (pure, no rendering).
 //!
-//! Algorithm (matches `REQUIREMENTS.md` §6):
-//! 1. Fill the border ring with `Border` and the interior with `Mineable`.
-//! 2. Place the start/exit doors on their border cells.
-//! 3. Place decorative visible walls.
-//! 4. Carve a guaranteed **corridor** (grid A\*) from start to exit over
-//!    rock/door cells, and mark it `protected` so it can never become unmineable.
+//! Algorithm (matches `REQUIREMENTS.md` §6, simplified to the 3-terrain model):
+//! 1. Fill the border ring with `Unbreakable` and the interior with `Mineable`.
+//! 2. Carve the start/exit gaps: those two border cells become `Dirt` (a hole in
+//!    the wall).
+//! 3. Place unbreakable internal structures.
+//! 4. Carve a guaranteed **corridor** (grid A\*) from start to exit over rock,
+//!    and mark it `protected` so it can never become unmineable.
 //! 5. Shuffle the remaining interior cells with the seeded RNG and flip the first
 //!    `unmineable_count` to `Unmineable`.
 //!
@@ -58,6 +59,12 @@ fn random_run_seed() -> u64 {
     rng.gen_range(0u64, u64::MAX)
 }
 
+/// Cells the player (and the guaranteed corridor) can traverse: diggable rock or
+/// an already-visible dirt gap.
+fn is_passable(t: Tile) -> bool {
+    matches!(t, Tile::Mineable | Tile::Dirt)
+}
+
 /// Generate a map from `config` using the deterministic RNG seeded by `seed`.
 pub fn generate(config: &MapConfig, seed: u64) -> Result<Map, GenError> {
     let w = config.width;
@@ -65,44 +72,46 @@ pub fn generate(config: &MapConfig, seed: u64) -> Result<Map, GenError> {
 
     let mut tiles = vec![Tile::Mineable; w * h];
 
-    // 1. Border ring.
+    // 1. Border ring of unbreakable rock.
     for y in 0..h {
         for x in 0..w {
             if x == 0 || y == 0 || x == w - 1 || y == h - 1 {
-                tiles[idx(w, x, y)] = Tile::Border;
+                tiles[idx(w, x, y)] = Tile::Unbreakable;
             }
         }
     }
 
-    // 2. Doors.
-    place(&mut tiles, w, h, config.start_door.x, config.start_door.y, Tile::StartDoor);
-    place(&mut tiles, w, h, config.exit_door.x, config.exit_door.y, Tile::ExitDoor);
+    // 2. Start/exit gaps: carve a hole in the border wall.
+    let start = (config.start.x, config.start.y);
+    let exit = (config.exit.x, config.exit.y);
+    if start.0 >= 0 && start.1 >= 0 && (start.0 as usize) < w && (start.1 as usize) < h {
+        tiles[idx(w, start.0 as usize, start.1 as usize)] = Tile::Dirt;
+    }
+    if exit.0 >= 0 && exit.1 >= 0 && (exit.0 as usize) < w && (exit.1 as usize) < h {
+        tiles[idx(w, exit.0 as usize, exit.1 as usize)] = Tile::Dirt;
+    }
 
-    // 3. Visible walls (never covering a door — a walled door would make the
-    //    level unwinnable).
-    for [vx, vy] in &config.visible_walls {
+    // 3. Internal unbreakable structures (never covering a start/exit gap).
+    for [vx, vy] in &config.structures {
         let (x, y) = (*vx, *vy);
         if x >= 0 && y >= 0 && (x as usize) < w && (y as usize) < h {
             let i = idx(w, x as usize, y as usize);
-            if tiles[i] != Tile::StartDoor && tiles[i] != Tile::ExitDoor {
-                tiles[i] = Tile::Wall;
+            let t = tiles[i];
+            if t != Tile::Dirt {
+                tiles[i] = Tile::Unbreakable;
             }
         }
     }
 
-    // 4. Guaranteed corridor (protected from becoming unmineable).
-    let is_passable = |x: i32, y: i32| -> bool {
+    // 4. Guaranteed corridor (protected from becoming unmineable). A\* routes
+    //    over diggable rock and the two dirt gaps, avoiding unbreakable cells.
+    let cell_passable = |x: i32, y: i32| -> bool {
         if x < 0 || y < 0 || x >= w as i32 || y >= h as i32 {
             return false;
         }
-        matches!(
-            tiles[idx(w, x as usize, y as usize)],
-            Tile::Mineable | Tile::Excavated | Tile::StartDoor | Tile::ExitDoor
-        )
+        is_passable(tiles[idx(w, x as usize, y as usize)])
     };
-    let start = (config.start_door.x, config.start_door.y);
-    let goal = (config.exit_door.x, config.exit_door.y);
-    let corridor = pathfinding::astar(start, goal, is_passable).ok_or(GenError::NoPath)?;
+    let corridor = pathfinding::astar(start, exit, cell_passable).ok_or(GenError::NoPath)?;
 
     let mut protected = vec![false; w * h];
     for &(x, y) in &corridor {
@@ -135,19 +144,20 @@ pub fn generate(config: &MapConfig, seed: u64) -> Result<Map, GenError> {
         tiles[idx(w, x, y)] = Tile::Unmineable;
     }
 
-    let map = Map { width: w, height: h, tiles };
-
-    // Guaranteed post-condition: a mineable-only path from the start to the exit
-    // always exists (this is what makes every generated level solvable). By
-    // construction the corridor is protected, so this never fails; the check is
-    // a cheap safety net and keeps `has_path` exercised in the binary too.
-    let passable = |x: i32, y: i32| {
-        matches!(
-            map.tile(x, y),
-            Tile::Mineable | Tile::Excavated | Tile::StartDoor | Tile::ExitDoor
-        )
+    let map = Map {
+        width: w,
+        height: h,
+        tiles,
+        start: (start.0 as usize, start.1 as usize),
+        exit: (exit.0 as usize, exit.1 as usize),
     };
-    debug_assert!(pathfinding::has_path(start, goal, passable));
+
+    // Guaranteed post-condition: a diggable path from start to exit always exists
+    // (this is what makes every generated level solvable). By construction the
+    // corridor is protected, so this never fails; it's a cheap safety net and
+    // keeps `has_path` exercised in the binary too.
+    let passable = |x: i32, y: i32| is_passable(map.tile(x, y));
+    debug_assert!(pathfinding::has_path(start, exit, passable));
 
     Ok(map)
 }
@@ -155,13 +165,6 @@ pub fn generate(config: &MapConfig, seed: u64) -> Result<Map, GenError> {
 #[inline]
 fn idx(w: usize, x: usize, y: usize) -> usize {
     y * w + x
-}
-
-#[inline]
-fn place(tiles: &mut [Tile], w: usize, h: usize, x: i32, y: i32, tile: Tile) {
-    if x >= 0 && y >= 0 && (x as usize) < w && (y as usize) < h {
-        tiles[idx(w, x as usize, y as usize)] = tile;
-    }
 }
 
 #[cfg(test)]
@@ -175,40 +178,42 @@ mod tests {
                 width = 30
                 height = 20
                 unmineable_count = 20
-                start_door = { x = 15, y = 19 }
-                exit_door  = { x = 5,  y = 0 }
-                visible_walls = [[8, 5], [9, 5], [10, 5]]
+                start = { x = 15, y = 19 }
+                exit  = { x = 5,  y = 0 }
+                structures = [[8, 5], [9, 5], [10, 5]]
             "#,
         )
         .expect("valid config")
     }
 
     #[test]
-    fn generates_expected_shape_doors_and_walls() {
+    fn generates_expected_shape_gaps_and_structures() {
         let map = generate(&config(), 12345).expect("generates");
         assert_eq!(map.width, 30);
         assert_eq!(map.height, 20);
 
-        let start = map.start_pos().expect("start door placed");
-        let exit = map.exit_pos().expect("exit door placed");
+        let start = map.start_pos();
+        let exit = map.exit_pos();
         assert_eq!(start, (15, 19));
         assert_eq!(exit, (5, 0));
 
-        // Visible walls are exactly the configured ones.
-        assert_eq!(map.tile(8, 5), Tile::Wall);
-        assert_eq!(map.tile(9, 5), Tile::Wall);
-        assert_eq!(map.tile(10, 5), Tile::Wall);
+        // Structures are exactly the configured ones.
+        assert_eq!(map.tile(8, 5), Tile::Unbreakable);
+        assert_eq!(map.tile(9, 5), Tile::Unbreakable);
+        assert_eq!(map.tile(10, 5), Tile::Unbreakable);
 
-        // Border ring everywhere except the two door cells.
-        for x in 0..map.width as i32 {
-            let top = if (x as usize, 0) == exit { Tile::ExitDoor } else { Tile::Border };
-            let bottom = if (x as usize, map.height - 1) == start { Tile::StartDoor } else { Tile::Border };
-            assert_eq!(map.tile(x, 0), top);
-            assert_eq!(map.tile(x, map.height as i32 - 1), bottom);
-        }
+        // Border ring is unbreakable everywhere except the two dirt gaps.
         for y in 0..map.height as i32 {
-            assert_eq!(map.tile(0, y), Tile::Border);
-            assert_eq!(map.tile(map.width as i32 - 1, y), Tile::Border);
+            for x in 0..map.width as i32 {
+                if x == 0 || y == 0 || x == map.width as i32 - 1 || y == map.height as i32 - 1 {
+                    let expected = if (x as usize, y as usize) == exit || (x as usize, y as usize) == start {
+                        Tile::Dirt
+                    } else {
+                        Tile::Unbreakable
+                    };
+                    assert_eq!(map.tile(x, y), expected, "border cell ({x},{y})");
+                }
+            }
         }
     }
 
@@ -234,13 +239,13 @@ mod tests {
     #[test]
     fn always_has_a_mineable_path_start_to_exit() {
         // Across many seeds, the generated map must remain solvable via a
-        // mineable-only path (never walled/unmineable on the corridor).
+        // mineable-only path (never unmineable/blocked on the corridor).
         for seed in 1..=40 {
             let map = generate(&config(), seed).expect("generates");
-            let start = map.start_pos().expect("start");
-            let exit = map.exit_pos().expect("exit");
+            let start = map.start_pos();
+            let exit = map.exit_pos();
             let passable = |x: i32, y: i32| {
-                matches!(map.tile(x, y), Tile::Mineable | Tile::Excavated | Tile::StartDoor | Tile::ExitDoor)
+                matches!(map.tile(x, y), Tile::Mineable | Tile::Dirt)
             };
             assert!(
                 pathfinding::has_path(
@@ -254,44 +259,44 @@ mod tests {
     }
 
     #[test]
-    fn wall_on_corridor_yields_valid_map() {
-        // A wall cluster that intersects the direct route must not produce an
+    fn structure_on_corridor_yields_valid_map() {
+        // A structure that intersects the direct route must not produce an
         // error; A* routes around it and the map remains valid.
         let cfg = MapConfig::from_toml(
             r#"
                 width = 30
                 height = 20
                 unmineable_count = 10
-                start_door = { x = 15, y = 19 }
-                exit_door  = { x = 15, y = 0 }
-                visible_walls = [[15, 10], [15, 11]]
+                start = { x = 15, y = 19 }
+                exit  = { x = 15, y = 0 }
+                structures = [[15, 10], [15, 11]]
             "#,
         )
         .expect("valid");
-        let map = generate(&cfg, 42).expect("generates despite wall on path");
+        let map = generate(&cfg, 42).expect("generates despite structure on path");
         assert!(pathfinding::has_path(
             (15, 19),
             (15, 0),
-            |x, y| matches!(map.tile(x, y), Tile::Mineable | Tile::Excavated | Tile::StartDoor | Tile::ExitDoor)
+            |x, y| matches!(map.tile(x, y), Tile::Mineable | Tile::Dirt)
         ));
     }
 
     #[test]
-    fn wall_does_not_cover_a_door() {
+    fn structure_does_not_cover_a_gap() {
         let cfg = MapConfig::from_toml(
             r#"
                 width = 30
                 height = 20
                 unmineable_count = 0
-                start_door = { x = 15, y = 19 }
-                exit_door  = { x = 5,  y = 0 }
-                visible_walls = [[5, 0], [15, 19]]
+                start = { x = 15, y = 19 }
+                exit  = { x = 5,  y = 0 }
+                structures = [[5, 0], [15, 19]]
             "#,
         )
         .expect("valid");
         let map = generate(&cfg, 1).expect("generates");
-        assert_eq!(map.tile(5, 0), Tile::ExitDoor, "exit door not covered");
-        assert_eq!(map.tile(15, 19), Tile::StartDoor, "start door not covered");
+        assert_eq!(map.tile(5, 0), Tile::Dirt, "exit gap not covered");
+        assert_eq!(map.tile(15, 19), Tile::Dirt, "start gap not covered");
     }
 
     #[test]
@@ -302,8 +307,8 @@ mod tests {
                 width = 4
                 height = 4
                 unmineable_count = 4
-                start_door = { x = 0, y = 2 }
-                exit_door  = { x = 3, y = 2 }
+                start = { x = 0, y = 2 }
+                exit  = { x = 3, y = 2 }
             "#,
         )
         .expect("valid");
@@ -315,7 +320,7 @@ mod tests {
 
     #[test]
     fn resolve_seed_prefers_config_seed() {
-        let cfg = config(); // has seed = ... none set in config(); use explicit
+        let cfg = config(); // has no seed set
         assert!(cfg.seed.is_none());
         // With no seed, it still returns a u64.
         let _ = resolve_seed(&cfg);
@@ -333,16 +338,13 @@ mod tests {
             let seed = resolve_seed(&cfg);
             let map = generate(&cfg, seed).unwrap_or_else(|e| panic!("{path}: {e}"));
             assert_eq!(map.count(Tile::Unmineable), cfg.unmineable_count, "{path}");
-            let start = map.start_pos().expect("start door");
-            let exit = map.exit_pos().expect("exit door");
+            let start = map.start_pos();
+            let exit = map.exit_pos();
             assert!(
                 pathfinding::has_path(
                     (start.0 as i32, start.1 as i32),
                     (exit.0 as i32, exit.1 as i32),
-                    |x, y| matches!(
-                        map.tile(x, y),
-                        Tile::Mineable | Tile::Excavated | Tile::StartDoor | Tile::ExitDoor
-                    )
+                    |x, y| matches!(map.tile(x, y), Tile::Mineable | Tile::Dirt)
                 ),
                 "{path} must be solvable"
             );

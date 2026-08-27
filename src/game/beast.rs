@@ -10,12 +10,12 @@ use macroquad::prelude::Vec2;
 
 use super::map::Map;
 use super::movement;
-use crate::assets::ids::{BeastMotion, CYCLE_FRAMES, Direction};
+use crate::assets::ids::{BeastMotion, Direction, WALK_FRAMES};
 
 /// Beast walk speed, world px/s.
 pub const BEAST_SPEED: f32 = 70.0;
 
-/// Seconds per beast walk-frame (ten-frame cycle).
+/// Seconds per beast walk-frame (four-frame cycle, per atlas timing).
 const WALK_FRAME_TIME: f32 = 0.1;
 
 #[derive(Debug, Clone)]
@@ -52,7 +52,7 @@ impl Beast {
             movement::move_axis(&mut self.pos, map, false, step.y);
 
             self.walk_timer += dt;
-            let frame = (self.walk_timer / WALK_FRAME_TIME) as usize % CYCLE_FRAMES;
+            let frame = (self.walk_timer / WALK_FRAME_TIME) as usize % WALK_FRAMES;
             self.motion = BeastMotion::Walk(frame as u8);
         } else {
             self.motion = BeastMotion::Idle;
@@ -71,14 +71,14 @@ mod tests {
     use crate::game::map::Tile;
 
     fn open_map() -> Map {
-        let mut map = Map { width: 5, height: 5, tiles: vec![Tile::Excavated; 25] };
+        let mut map = Map { width: 5, height: 5, tiles: vec![Tile::Dirt; 25], start: (0, 2), exit: (4, 2) };
         for y in 0..5 {
-            map.tiles[y * 5 + 0] = Tile::Border;
-            map.tiles[y * 5 + 4] = Tile::Border;
+            map.tiles[y * 5 + 0] = Tile::Unbreakable;
+            map.tiles[y * 5 + 4] = Tile::Unbreakable;
         }
         for x in 0..5 {
-            map.tiles[0 * 5 + x] = Tile::Border;
-            map.tiles[4 * 5 + x] = Tile::Border;
+            map.tiles[0 * 5 + x] = Tile::Unbreakable;
+            map.tiles[4 * 5 + x] = Tile::Unbreakable;
         }
         map
     }
@@ -101,18 +101,18 @@ mod tests {
 
     #[test]
     fn beast_is_blocked_by_solid_cells() {
-        // A wall column separates the beast (left) from the player (right).
+        // A rock column separates the beast (left) from the player (right).
         let mut map = open_map();
         for y in 1..4 {
-            map.set_tile(2, y, Tile::Wall);
+            map.set_tile(2, y, Tile::Unbreakable);
         }
         let mut b = Beast::new(center_of((1, 2)));
         let player = center_of((3, 2));
-        // After several frames the beast must not cross the wall column.
+        // After several frames the beast must not cross the rock column.
         for _ in 0..120 {
             b.update(player, &map, 1.0 / 60.0);
         }
-        assert!(b.pos.x < 2.0 * 16.0, "beast must not pass the wall");
+        assert!(b.pos.x < 2.0 * 16.0, "beast must not pass the rock");
     }
 
     #[test]

@@ -1,34 +1,31 @@
 //! Map grid and tile types (pure, no rendering).
+//!
+//! The map now has **three visual** terrains but four gameplay states:
+//!
+//! - `Unbreakable` rock: the border ring and internal structures. Solid, never
+//!   mined, and drawn with the unbreakable-rock family.
+//! - `Mineable`/`Unmineable` rock: visually identical (both render the mineable
+//!   rock family) — the difference is purely gameplay (whether it can be dug).
+//! - `Dirt`: the excavated walkable path, drawn as a flat dirt fill.
 
 /// One cell of the map grid. Each cell is a 16×16 px tile.
-///
-/// Mineable and unmineable rocks are visually identical (both render the rock
-/// atlas fill); the distinction is gameplay data, not appearance.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tile {
     /// A diggable rock. Blocks movement until mined through.
     Mineable,
     /// A rock that looks exactly like a mineable one but cannot be dug.
     Unmineable,
-    /// An excavated (dug-out) cell — open floor.
-    Excavated,
-    /// A visible (decorative) wall — never mineable, blocks movement.
-    Wall,
-    /// The outer impassable frame.
-    Border,
-    /// The spawn door on the border.
-    StartDoor,
-    /// The exit door on the border.
-    ExitDoor,
+    /// Unbreakable rock: the map border ring and internal structures. Solid,
+    /// never mineable, drawn with the unbreakable-rock wang family.
+    Unbreakable,
+    /// The excavated (dug-out) path — open, walkable dirt.
+    Dirt,
 }
 
 impl Tile {
     /// Whether this tile blocks player movement.
     pub fn solid(self) -> bool {
-        matches!(
-            self,
-            Tile::Mineable | Tile::Unmineable | Tile::Wall | Tile::Border
-        )
+        matches!(self, Tile::Mineable | Tile::Unmineable | Tile::Unbreakable)
     }
 
     /// Whether this tile can be mined (dug) by the player.
@@ -43,6 +40,10 @@ pub struct Map {
     pub width: usize,
     pub height: usize,
     pub tiles: Vec<Tile>,
+    /// Grid coords of the start gap (a `Dirt` hole in the border ring).
+    pub start: (usize, usize),
+    /// Grid coords of the exit gap (a `Dirt` hole in the border ring).
+    pub exit: (usize, usize),
 }
 
 impl Map {
@@ -51,11 +52,11 @@ impl Map {
         x >= 0 && y >= 0 && (x as usize) < self.width && (y as usize) < self.height
     }
 
-    /// Returns the tile at `(x, y)`. Out-of-bounds coordinates return `Border`
-    /// so that collision logic treats the edges of the world as solid.
+    /// Returns the tile at `(x, y)`. Out-of-bounds coordinates return
+    /// `Unbreakable` so collision logic treats the world edges as solid rock.
     pub fn tile(&self, x: i32, y: i32) -> Tile {
         if !self.in_bounds(x, y) {
-            return Tile::Border;
+            return Tile::Unbreakable;
         }
         self.tiles[y as usize * self.width + x as usize]
     }
@@ -76,25 +77,14 @@ impl Map {
         self.tiles.iter().filter(|&&t| t == tile).count()
     }
 
-    /// Grid coordinates of the start door, if present.
-    pub fn start_pos(&self) -> Option<(usize, usize)> {
-        self.find(Tile::StartDoor)
+    /// Grid coordinates of the start gap.
+    pub fn start_pos(&self) -> (usize, usize) {
+        self.start
     }
 
-    /// Grid coordinates of the exit door, if present.
-    pub fn exit_pos(&self) -> Option<(usize, usize)> {
-        self.find(Tile::ExitDoor)
-    }
-
-    fn find(&self, target: Tile) -> Option<(usize, usize)> {
-        for y in 0..self.height {
-            for x in 0..self.width {
-                if self.tiles[y * self.width + x] == target {
-                    return Some((x, y));
-                }
-            }
-        }
-        None
+    /// Grid coordinates of the exit gap.
+    pub fn exit_pos(&self) -> (usize, usize) {
+        self.exit
     }
 }
 
@@ -106,39 +96,35 @@ mod tests {
         Map {
             width: 5,
             height: 5,
-            tiles: vec![Tile::Border; 25],
+            tiles: vec![Tile::Unbreakable; 25],
+            start: (0, 2),
+            exit: (4, 2),
         }
     }
 
     #[test]
-    fn tile_solid_covers_rocks_wall_border() {
+    fn tile_solid_covers_rocks_and_border() {
         assert!(Tile::Mineable.solid());
         assert!(Tile::Unmineable.solid());
-        assert!(Tile::Wall.solid());
-        assert!(Tile::Border.solid());
-        assert!(!Tile::Excavated.solid());
-        assert!(!Tile::StartDoor.solid());
-        assert!(!Tile::ExitDoor.solid());
+        assert!(Tile::Unbreakable.solid());
+        assert!(!Tile::Dirt.solid());
     }
 
     #[test]
     fn mineable_is_only_true_for_mineable() {
         assert!(Tile::Mineable.mineable());
         assert!(!Tile::Unmineable.mineable());
-        assert!(!Tile::Wall.mineable());
-        assert!(!Tile::Border.mineable());
-        assert!(!Tile::Excavated.mineable());
-        assert!(!Tile::StartDoor.mineable());
-        assert!(!Tile::ExitDoor.mineable());
+        assert!(!Tile::Unbreakable.mineable());
+        assert!(!Tile::Dirt.mineable());
     }
 
     #[test]
-    fn out_of_bounds_reads_as_solid_border() {
+    fn out_of_bounds_reads_as_solid_rock() {
         let m = test_map();
-        assert_eq!(m.tile(-1, 0), Tile::Border);
-        assert_eq!(m.tile(0, -1), Tile::Border);
-        assert_eq!(m.tile(5, 0), Tile::Border);
-        assert_eq!(m.tile(0, 5), Tile::Border);
+        assert_eq!(m.tile(-1, 0), Tile::Unbreakable);
+        assert_eq!(m.tile(0, -1), Tile::Unbreakable);
+        assert_eq!(m.tile(5, 0), Tile::Unbreakable);
+        assert_eq!(m.tile(0, 5), Tile::Unbreakable);
         assert!(m.is_solid(-1, 0));
         assert!(!m.in_bounds(-1, 0));
     }
@@ -146,10 +132,10 @@ mod tests {
     #[test]
     fn set_tile_and_accessors_round_trip() {
         let mut m = test_map();
-        m.set_tile(2, 2, Tile::Excavated);
-        assert_eq!(m.tile(2, 2), Tile::Excavated);
-        assert_eq!(m.count(Tile::Excavated), 1);
-        assert_eq!(m.count(Tile::Border), 24);
+        m.set_tile(2, 2, Tile::Dirt);
+        assert_eq!(m.tile(2, 2), Tile::Dirt);
+        assert_eq!(m.count(Tile::Dirt), 1);
+        assert_eq!(m.count(Tile::Unbreakable), 24);
     }
 
     #[test]
@@ -162,11 +148,9 @@ mod tests {
     }
 
     #[test]
-    fn find_doors() {
-        let mut m = test_map();
-        m.set_tile(0, 2, Tile::StartDoor);
-        m.set_tile(4, 2, Tile::ExitDoor);
-        assert_eq!(m.start_pos(), Some((0, 2)));
-        assert_eq!(m.exit_pos(), Some((4, 2)));
+    fn find_gaps() {
+        let m = test_map();
+        assert_eq!(m.start_pos(), (0, 2));
+        assert_eq!(m.exit_pos(), (4, 2));
     }
 }

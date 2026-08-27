@@ -6,13 +6,16 @@ use macroquad::prelude::Vec2;
 use super::map::{Map, Tile};
 use super::mining::{self, Mining};
 use super::movement;
-use crate::assets::ids::{CYCLE_FRAMES, PlayerMotion};
+use crate::assets::ids::{IDLE_FRAMES, MINE_FRAMES, PlayerMotion, WALK_FRAMES};
 
-/// Seconds per walk-frame when moving (ten-frame cycle).
-const WALK_FRAME_TIME: f32 = 0.08;
+/// Seconds per idle-frame (two-frame breathing cycle, per atlas timing).
+const IDLE_FRAME_TIME: f32 = 0.125;
 
-/// Seconds per mining-frame (raise/impact pickaxe, ten-frame cycle).
-const MINE_FRAME_TIME: f32 = 0.05;
+/// Seconds per walk-frame (four-frame cycle, per atlas timing).
+const WALK_FRAME_TIME: f32 = 0.125;
+
+/// Seconds per mining-frame (raise/impact pickaxe, four-frame cycle).
+const MINE_FRAME_TIME: f32 = 0.125;
 
 #[derive(Debug, Clone)]
 pub struct Player {
@@ -29,6 +32,7 @@ pub struct Player {
     /// In-progress mine, if any.
     pub mining: Option<Mining>,
     walk_anim_timer: f32,
+    idle_anim_timer: f32,
 }
 
 impl Player {
@@ -36,10 +40,11 @@ impl Player {
         Player {
             pos,
             speed,
-            motion: PlayerMotion::Idle,
+            motion: PlayerMotion::Idle(0),
             facing: Vec2::new(0.0, 1.0),
             mining: None,
             walk_anim_timer: 0.0,
+            idle_anim_timer: 0.0,
         }
     }
 
@@ -51,7 +56,7 @@ impl Player {
     /// so the facing/target stays stable — never re-aimed or aborted by pressing
     /// a direction). Otherwise, if `mine_held` and the player faces a mineable
     /// cell, a new mine begins: movement stops and `progress` accrues over
-    /// `mining_time` seconds, then the cell becomes `Excavated`. If nothing is
+    /// `mining_time` seconds, then the cell becomes `Dirt`. If nothing is
     /// being mined, the player moves normally and any mining state is cleared.
     pub fn update(&mut self, intent: Vec2, mine_held: bool, map: &mut Map, mining_time: f32, dt: f32) {
         let target = if mine_held {
@@ -85,16 +90,17 @@ impl Player {
             0.0
         };
         self.mining = Some(Mining { target, progress });
-        self.motion = PlayerMotion::Mine(((progress / MINE_FRAME_TIME) as usize % CYCLE_FRAMES) as u8);
+        self.motion = PlayerMotion::Mine(((progress / MINE_FRAME_TIME) as usize % MINE_FRAMES) as u8);
         self.walk_anim_timer = 0.0;
+        self.idle_anim_timer = 0.0;
 
         if progress >= mining_time {
-            map.set_tile(target.0, target.1, Tile::Excavated);
+            map.set_tile(target.0, target.1, Tile::Dirt);
             self.mining = None;
         }
     }
 
-    /// Move without mining: apply `intent`, resolve collision, run walk anim.
+    /// Move without mining: apply `intent`, resolve collision, run the anim.
     fn move_free(&mut self, intent: Vec2, map: &Map, dt: f32) {
         let moving = intent.length_squared() > 0.0;
         if moving {
@@ -102,12 +108,16 @@ impl Player {
             movement::move_axis(&mut self.pos, map, true, step.x);
             movement::move_axis(&mut self.pos, map, false, step.y);
 
-            // Two-frame walk animation.
+            // Four-frame walk animation.
             self.walk_anim_timer += dt;
-            let frame = (self.walk_anim_timer / WALK_FRAME_TIME) as usize % CYCLE_FRAMES;
+            let frame = (self.walk_anim_timer / WALK_FRAME_TIME) as usize % WALK_FRAMES;
             self.motion = PlayerMotion::Walk(frame as u8);
+            self.idle_anim_timer = 0.0;
         } else {
-            self.motion = PlayerMotion::Idle;
+            // Two-frame idle breathing animation.
+            self.idle_anim_timer += dt;
+            let frame = (self.idle_anim_timer / IDLE_FRAME_TIME) as usize % IDLE_FRAMES;
+            self.motion = PlayerMotion::Idle(frame as u8);
             self.walk_anim_timer = 0.0;
         }
     }
@@ -121,12 +131,12 @@ mod tests {
 
     const TEST_SPEED: f32 = 120.0;
 
-    /// 5x5 grid with a solid rock at (3,2) and an excavated interior.
+    /// 5x5 grid with a solid rock at (3,2) and a dirt interior.
     fn test_map() -> Map {
-        let mut m = Map { width: 5, height: 5, tiles: vec![Tile::Border; 25] };
+        let mut m = Map { width: 5, height: 5, tiles: vec![Tile::Unbreakable; 25], start: (0, 2), exit: (4, 2) };
         for y in 1..4 {
             for x in 1..4 {
-                m.tiles[y * 5 + x] = Tile::Excavated;
+                m.tiles[y * 5 + x] = Tile::Dirt;
             }
         }
         m.tiles[2 * 5 + 3] = Tile::Mineable; // rock to the right of center
@@ -134,14 +144,14 @@ mod tests {
     }
 
     fn open_map() -> Map {
-        let mut map = Map { width: 5, height: 5, tiles: vec![Tile::Excavated; 25] };
+        let mut map = Map { width: 5, height: 5, tiles: vec![Tile::Dirt; 25], start: (0, 2), exit: (4, 2) };
         for y in 0..5 {
-            map.tiles[y * 5 + 0] = Tile::Border;
-            map.tiles[y * 5 + 4] = Tile::Border;
+            map.tiles[y * 5 + 0] = Tile::Unbreakable;
+            map.tiles[y * 5 + 4] = Tile::Unbreakable;
         }
         for x in 0..5 {
-            map.tiles[0 * 5 + x] = Tile::Border;
-            map.tiles[4 * 5 + x] = Tile::Border;
+            map.tiles[0 * 5 + x] = Tile::Unbreakable;
+            map.tiles[4 * 5 + x] = Tile::Unbreakable;
         }
         map
     }
@@ -165,9 +175,8 @@ mod tests {
     }
 
     #[test]
-    fn moving_through_excavated_and_doors_is_allowed() {
+    fn moving_through_open_dirt_is_allowed() {
         let mut map = open_map();
-        map.tiles[2 * 5 + 2] = Tile::StartDoor;
         let mut p = Player::new(center_of((2, 2)), TEST_SPEED);
         let before = p.pos;
         p.update(Vec2::new(1.0, 0.0), false, &mut map, 0.8, 1.0 / 60.0);
@@ -190,30 +199,49 @@ mod tests {
     }
 
     #[test]
-    fn walk_animation_alternates_while_moving_and_idles() {
+    fn walk_animation_cycles_while_moving_and_idles() {
         let mut map = open_map();
         let mut p = player_at_center();
         let dt = 1.0 / 60.0;
-        let (mut saw1, mut saw2) = (false, false);
+        let (mut saw0, mut saw3) = (false, false);
         for _ in 0..120 {
             p.update(Vec2::new(1.0, 0.0), false, &mut map, 0.8, dt);
             match p.motion {
                 PlayerMotion::Walk(_) => {
-                    saw1 |= p.motion == PlayerMotion::Walk(0);
-                    saw2 |= p.motion == PlayerMotion::Walk(1);
+                    saw0 |= p.motion == PlayerMotion::Walk(0);
+                    saw3 |= p.motion == PlayerMotion::Walk(3);
                 }
                 other => panic!("expected a walk phase, got {other:?}"),
             }
         }
-        assert!(saw1 && saw2);
+        assert!(saw0 && saw3, "walk cycle must visit frame 0 and frame 3");
         for _ in 0..5 {
             p.update(Vec2::ZERO, false, &mut map, 0.8, dt);
         }
-        assert_eq!(p.motion, PlayerMotion::Idle);
+        assert!(matches!(p.motion, PlayerMotion::Idle(_)), "should idle when still");
     }
 
     #[test]
-    fn mining_completes_and_turns_rock_to_excavated() {
+    fn idle_animation_advances_whilst_stationary() {
+        let mut map = open_map();
+        let mut p = player_at_center();
+        let dt = 1.0 / 60.0;
+        let (mut saw0, mut saw1) = (false, false);
+        for _ in 0..60 {
+            p.update(Vec2::ZERO, false, &mut map, 0.8, dt);
+            match p.motion {
+                PlayerMotion::Idle(f) => {
+                    saw0 |= f == 0;
+                    saw1 |= f == 1;
+                }
+                other => panic!("expected idle when stationary, got {other:?}"),
+            }
+        }
+        assert!(saw0 && saw1, "idle should cycle through both frames");
+    }
+
+    #[test]
+    fn mining_completes_and_turns_rock_to_dirt() {
         let mut map = open_map();
         map.set_tile(3, 2, Tile::Mineable);
         let mut p = player_at_center();
@@ -224,7 +252,7 @@ mod tests {
         for _ in 0..60 {
             p.update(Vec2::ZERO, true, &mut map, 0.8, dt);
         }
-        assert_eq!(map.tile(3, 2), Tile::Excavated, "rock was mined through");
+        assert_eq!(map.tile(3, 2), Tile::Dirt, "rock was mined through");
         // Mining gates movement: the player never moved.
         assert!((p.pos - before).length() < 0.001);
     }
@@ -243,15 +271,15 @@ mod tests {
     }
 
     #[test]
-    fn mining_holds_anim_and_ignores_walls() {
+    fn mining_holds_anim_and_ignores_solid() {
         let mut map = open_map();
-        map.set_tile(3, 2, Tile::Wall);
+        map.set_tile(3, 2, Tile::Unbreakable);
         let mut p = player_at_center();
         p.facing = Vec2::new(1.0, 0.0);
-        // Holding mine against a wall does not engage mining (nothing to dig).
+        // Holding mine against a solid rock does not engage mining (nothing to dig).
         p.update(Vec2::ZERO, true, &mut map, 0.8, 1.0 / 60.0);
         assert!(p.mining.is_none());
-        assert_eq!(map.tile(3, 2), Tile::Wall);
+        assert_eq!(map.tile(3, 2), Tile::Unbreakable);
     }
 
     #[test]
@@ -302,14 +330,14 @@ mod tests {
                 width = 30
                 height = 20
                 unmineable_count = 20
-                start_door = { x = 15, y = 19 }
-                exit_door  = { x = 5,  y = 0 }
-                visible_walls = [[8, 5], [9, 5], [10, 5]]
+                start = { x = 15, y = 19 }
+                exit  = { x = 5,  y = 0 }
+                structures = [[8, 5], [9, 5], [10, 5]]
             "#,
         )
         .expect("valid config");
         let mut map = generate(&cfg, 12345).expect("generates");
-        let start = map.start_pos().expect("start");
+        let start = map.start_pos();
         let mut p = Player::new(center_of((start.0 as i32, start.1 as i32)), 120.0);
 
         let map_w = map.width as f32 * TILE_SIZE;

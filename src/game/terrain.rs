@@ -1,115 +1,71 @@
-//! Terrain autotiling (pure): map a cell and its neighbours to a terrain-atlas
-//! tile `(row, col)`.
+//! Terrain autotiling (pure): map a cell and its cardinal neighbours to the tile
+//! family + Wang-mask tile to draw.
 //!
-//! The atlas is a 7×6 grid:
-//!   row 0  : base fills (rock, floor, wall, border, start door, exit door)
-//!   rows 1–2 : floor ↔ light-rock transitions
-//!   rows 3–4 : floor ↔ border (dark rocky exterior) transitions
-//!   rows 5–6 : floor ↔ masonry (visible wall) transitions
+//! The new atlas has one row per **terrain family**, each containing a `base`
+//! fill (column 0) plus a 16-tile **Wang** set (columns 1..16). A Wang tile is
+//! selected by a 4-bit mask of which cardinal neighbours share the *same*
+//! material (N=1, E=2, S=4, W=8); the mask's set bits mean "connected, no border"
+//! so `wang[15]` is a fully-merged interior tile and `wang[0]` is an isolated
+//! one bordered on all four sides. The atlas packs `wang[k]` at column `k + 1`,
+//! with the plain `base` fill at column 0.
 //!
-//! A floor (excavated) cell is drawn with its neighbouring solid material's edge
-//! baked in. We pick the material family from the solid cardinal neighbours,
-//! then choose one of the transition shapes from a bitmask of which sides are
-//! solid.
+//! There are three visual families:
+//! - **Unbreakable** rock (`Unbreakable`) — the border ring and structures.
+//! - **Mineable** rock (`Mineable`/`Unmineable`, visually identical).
+//! - **Dirt** — flat, walkable, no Wang set (always the base fill).
 //!
-//! NOTE: the exact shape→atlas-column mapping is empirical and verified against
-//! the rendered map; the [`transition_shape`] table is the single place to tune
-//! it. Commented candidate assignments are kept so adjustments are quick.
+//! Rocks draw edges toward any differing material (a different rock family or
+//! dirt); dirt is always drawn flat (rocks draw the transition toward it). The
+//! 4-bit mask and the per-family row are the only things this module decides —
+//! the concrete atlas `(row, col)` lives in the asset layer.
 
 use crate::game::map::Tile;
 
-/// Atlas coordinates of the base fills.
-pub const ROCK: (usize, usize) = (0, 0);
-pub const FLOOR: (usize, usize) = (0, 1);
-pub const WALL: (usize, usize) = (0, 2);
-pub const BORDER: (usize, usize) = (0, 3);
-pub const START_DOOR: (usize, usize) = (0, 4);
-pub const EXIT_DOOR: (usize, usize) = (0, 5);
-
-/// First row of each floor-transition family.
-const ROCK_FAMILY: usize = 1;
-const BORDER_FAMILY: usize = 3;
-const WALL_FAMILY: usize = 5;
-
-/// Terrain-atlas `(row, col)` for a cell, given its own `Tile` and the tiles of
-/// its four cardinal neighbours `(n, e, s, w)`.
-pub fn tile_atlas(center: Tile, n: Tile, e: Tile, s: Tile, w: Tile) -> (usize, usize) {
-    match center {
-        Tile::Mineable | Tile::Unmineable => ROCK,
-        Tile::Wall => WALL,
-        Tile::Border => BORDER,
-        Tile::StartDoor => START_DOOR,
-        Tile::ExitDoor => EXIT_DOOR,
-        Tile::Excavated => match edge_family(n, e, s, w) {
-            Some(base) => transition_shape(base, neighbour_mask(n, e, s, w)),
-            None => FLOOR,
-        },
-    }
-}
-
-/// Whether a tile is the kind a floor edge draws around (rock/wall/border).
-fn is_edge(t: Tile) -> bool {
-    matches!(t, Tile::Mineable | Tile::Unmineable | Tile::Wall | Tile::Border)
-}
-
-/// Pick the material family (its first atlas row) for a floor cell's edges.
+/// The terrain-family + Wang-mask selection for a cell.
 ///
-/// Prefers rock (the common case: floor carved through rock), then wall, then
-/// border. A floor cell typically borders a single material; the dominant match
-/// is chosen when several are present.
-fn edge_family(n: Tile, e: Tile, s: Tile, w: Tile) -> Option<usize> {
-    if [n, e, s, w].iter().any(|&t| matches!(t, Tile::Mineable | Tile::Unmineable)) {
-        return Some(ROCK_FAMILY);
-    }
-    if [n, e, s, w].iter().any(|&t| t == Tile::Wall) {
-        return Some(WALL_FAMILY);
-    }
-    if [n, e, s, w].iter().any(|&t| t == Tile::Border) {
-        return Some(BORDER_FAMILY);
-    }
-    None
+/// `Dirt` carries no mask (it is a flat fill). `Mineable`/`Unbreakable` carry a
+/// 4-bit mask of which cardinal neighbours share the same material.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TerrainTile {
+    /// Flat dirt path.
+    Dirt,
+    /// Mineable rock drawn with Wang mask `m` (0..15).
+    Mineable(u8),
+    /// Unbreakable rock drawn with Wang mask `m` (0..15).
+    Unbreakable(u8),
 }
 
-/// A 4-bit mask of which cardinal neighbours are solid: N=1, E=2, S=4, W=8.
-fn neighbour_mask(n: Tile, e: Tile, s: Tile, w: Tile) -> u8 {
+/// Select the tile to draw for `center`, given its four cardinal neighbours.
+pub fn tile_atlas(center: Tile, n: Tile, e: Tile, s: Tile, w: Tile) -> TerrainTile {
+    match center {
+        Tile::Mineable | Tile::Unmineable => {
+            TerrainTile::Mineable(mask(n, e, s, w, |t| matches!(t, Tile::Mineable | Tile::Unmineable)))
+        }
+        Tile::Unbreakable => {
+            TerrainTile::Unbreakable(mask(n, e, s, w, |t| t == Tile::Unbreakable))
+        }
+        Tile::Dirt => TerrainTile::Dirt,
+    }
+}
+
+/// Build a 4-bit mask (N=1, E=2, S=4, W=8) where a bit is *set* when the
+/// neighbour on that side is the **same material** (so the tile merges, no
+/// border). `same` decides what "same material" means for a family.
+fn mask(n: Tile, e: Tile, s: Tile, w: Tile, same: impl Fn(Tile) -> bool) -> u8 {
     let mut m = 0u8;
-    if is_edge(n) {
+    if same(n) {
         m |= 1;
     }
-    if is_edge(e) {
+    if same(e) {
         m |= 2;
     }
-    if is_edge(s) {
+    if same(s) {
         m |= 4;
     }
-    if is_edge(w) {
+    if same(w) {
         m |= 8;
     }
     m
-}
-
-/// Atlas `(row, col)` for a floor cell with a `mask` of solid cardinal
-/// neighbours, inside a transition family whose first row is `base`.
-fn transition_shape(base: usize, mask: u8) -> (usize, usize) {
-    // Column 0 of the family's two rows is the "straight" edge family.
-    let (row_off, col) = match mask {
-        0 => (0, 1),       // no solid neighbours -> plain floor fill
-        1 => (0, 0),       // N edge
-        2 => (0, 2),       // E edge
-        4 => (1, 0),       // S edge
-        8 => (0, 3),       // W edge
-        3 => (0, 1),       // N+E convex corner
-        6 => (1, 2),       // E+S convex corner
-        12 => (1, 4),      // S+W convex corner
-        9 => (0, 4),       // W+N convex corner
-        7 => (1, 1),       // N+E+S
-        14 => (1, 3),      // E+S+W
-        13 => (1, 5),      // S+W+N
-        11 => (0, 5),      // W+N+E
-        15 => (0, 1),      // surrounded
-        _ => (0, 1),
-    };
-    (base + row_off, col)
 }
 
 #[cfg(test)]
@@ -118,48 +74,74 @@ mod tests {
 
     #[test]
     fn base_fills_map_directly() {
-        let b = Tile::Border;
-        assert_eq!(tile_atlas(Tile::Mineable, b, b, b, b), ROCK);
-        assert_eq!(tile_atlas(Tile::Unmineable, b, b, b, b), ROCK);
-        assert_eq!(tile_atlas(Tile::Wall, b, b, b, b), WALL);
-        assert_eq!(tile_atlas(Tile::Border, b, b, b, b), BORDER);
-        assert_eq!(tile_atlas(Tile::StartDoor, b, b, b, b), START_DOOR);
-        assert_eq!(tile_atlas(Tile::ExitDoor, b, b, b, b), EXIT_DOOR);
+        let m = Tile::Mineable;
+        let ub = Tile::Unbreakable;
+        let d = Tile::Dirt;
+        // A mineable cell fully surrounded by *mineable-family* rock merges.
+        let inner = Tile::Mineable;
+        assert_eq!(tile_atlas(Tile::Mineable, inner, inner, inner, inner), TerrainTile::Mineable(15));
+        assert_eq!(tile_atlas(Tile::Unmineable, inner, inner, inner, inner), TerrainTile::Mineable(15));
+        // Surrounded by unbreakable rock: no mineable merge -> isolated border.
+        assert_eq!(tile_atlas(Tile::Mineable, ub, ub, ub, ub), TerrainTile::Mineable(0));
+        // Unbreakable fully surrounded by unbreakable merges.
+        assert_eq!(tile_atlas(Tile::Unbreakable, ub, ub, ub, ub), TerrainTile::Unbreakable(15));
+        // Dirt is flat regardless of neighbours.
+        assert_eq!(tile_atlas(Tile::Dirt, ub, m, d, m), TerrainTile::Dirt);
     }
 
     #[test]
-    fn open_floor_uses_floor_fill() {
-        let f = Tile::Excavated;
-        assert_eq!(tile_atlas(Tile::Excavated, f, f, f, f), FLOOR);
+    fn dirt_is_always_flat() {
+        // Dirt is flat regardless of neighbours.
+        let dirt = Tile::Dirt;
+        let rock = Tile::Mineable;
+        assert_eq!(tile_atlas(Tile::Dirt, rock, rock, rock, rock), TerrainTile::Dirt);
+        assert_eq!(tile_atlas(Tile::Dirt, dirt, dirt, dirt, dirt), TerrainTile::Dirt);
     }
 
     #[test]
-    fn floor_with_single_rock_edge_uses_rock_transition() {
-        let f = Tile::Excavated;
+    fn mineable_mask_detects_same_rock_family() {
+        let m = Tile::Mineable;
+        let u = Tile::Unmineable;
+        let d = Tile::Dirt;
+
+        // All four neighbours mineable -> fully merged.
+        assert_eq!(
+            tile_atlas(Tile::Mineable, m, m, m, m),
+            TerrainTile::Mineable(0b1111)
+        );
+        // Unmineable neighbours count as the same rock family.
+        assert_eq!(
+            tile_atlas(Tile::Mineable, u, u, u, u),
+            TerrainTile::Mineable(0b1111)
+        );
+        // North needs a border -> that bit is not set.
+        assert_eq!(
+            tile_atlas(Tile::Mineable, d, m, m, m),
+            TerrainTile::Mineable(0b1110)
+        );
+    }
+
+    #[test]
+    fn unbreakable_mask_ignores_other_materials() {
+        let ub = Tile::Unbreakable;
         let rk = Tile::Mineable;
-        // Rock above.
-        let (r, c) = tile_atlas(Tile::Excavated, rk, f, f, f);
-        assert_eq!(r, ROCK_FAMILY);
-        assert_eq!(c, 0);
-        // Rock to the right.
-        let (r, c) = tile_atlas(Tile::Excavated, f, rk, f, f);
-        assert_eq!(r, ROCK_FAMILY);
-        assert_eq!(c, 2);
+        // All four unbreakable -> fully merged.
+        assert_eq!(tile_atlas(Tile::Unbreakable, ub, ub, ub, ub), TerrainTile::Unbreakable(15));
+        // Rock neighbour is a different material -> that side needs a border.
+        assert_eq!(tile_atlas(Tile::Unbreakable, rk, ub, ub, ub), TerrainTile::Unbreakable(14));
     }
 
     #[test]
-    fn floor_next_to_wall_uses_wall_family() {
-        let f = Tile::Excavated;
-        let wall = Tile::Wall;
-        let (r, _c) = tile_atlas(Tile::Excavated, wall, f, f, f);
-        assert_eq!(r, WALL_FAMILY);
-    }
-
-    #[test]
-    fn floor_next_to_border_uses_border_family() {
-        let f = Tile::Excavated;
-        let bd = Tile::Border;
-        let (r, _c) = tile_atlas(Tile::Excavated, f, bd, f, f);
-        assert_eq!(r, BORDER_FAMILY);
+    fn single_edge_masks_have_expected_bits() {
+        let rk = Tile::Mineable;
+        let f = Tile::Dirt;
+        // Rock above only.
+        assert_eq!(tile_atlas(Tile::Mineable, rk, f, f, f), TerrainTile::Mineable(1));
+        // Rock to the right only.
+        assert_eq!(tile_atlas(Tile::Mineable, f, rk, f, f), TerrainTile::Mineable(2));
+        // Rock below only.
+        assert_eq!(tile_atlas(Tile::Mineable, f, f, rk, f), TerrainTile::Mineable(4));
+        // Rock to the left only.
+        assert_eq!(tile_atlas(Tile::Mineable, f, f, f, rk), TerrainTile::Mineable(8));
     }
 }

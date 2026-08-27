@@ -1,6 +1,6 @@
-# Level 2 — slightly harder. More unmineable rocks and a bigger wall cluster.
-# No `seed` field, so the map randomizes fresh on every run (proving the
-# random-seed path works). The loader handles multiple files.
+# Level 2 — slightly harder. More unmineable rocks and a bigger unbreakable
+# structure. No `seed` field, so the map randomizes fresh on every run (proving
+# the random-seed path works). The loader handles multiple files.
 width = 30
 height = 20
 
@@ -10,7 +10,7 @@ beast_count = 1
 beast_speed_multiplier = 1.0
 beast_mining_time_multiplier = 1.0
 
-start_door = { x = 15, y = 19 }
-exit_door  = { x = 5,  y = 0 }
+start = { x = 15, y = 19 }
+exit  = { x = 5,  y = 0 }
 
-visible_walls = [[20, 9], [21, 9], [22, 9], [20, 10], [21, 10], [22, 10]]
+structures = [[20, 9], [21, 9], [22, 9], [20, 10], [21, 10], [22, 10]]
