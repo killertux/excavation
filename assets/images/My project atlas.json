@@ -1,0 +1,3142 @@
+{
+  "frames": {
+    "Miner Front/base/0": {
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Miner Front/idle/0": {
+      "frame": {
+        "x": 33,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Front/idle/1": {
+      "frame": {
+        "x": 66,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Front/walk/0": {
+      "frame": {
+        "x": 99,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Front/walk/1": {
+      "frame": {
+        "x": 132,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Front/walk/2": {
+      "frame": {
+        "x": 165,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Front/walk/3": {
+      "frame": {
+        "x": 198,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Front/mine/0": {
+      "frame": {
+        "x": 231,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Front/mine/1": {
+      "frame": {
+        "x": 264,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Front/mine/2": {
+      "frame": {
+        "x": 297,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Front/mine/3": {
+      "frame": {
+        "x": 330,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Back/base/0": {
+      "frame": {
+        "x": 0,
+        "y": 33,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Miner Back/idle/0": {
+      "frame": {
+        "x": 33,
+        "y": 33,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Back/idle/1": {
+      "frame": {
+        "x": 66,
+        "y": 33,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Back/walk/0": {
+      "frame": {
+        "x": 99,
+        "y": 33,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Back/walk/1": {
+      "frame": {
+        "x": 132,
+        "y": 33,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Back/walk/2": {
+      "frame": {
+        "x": 165,
+        "y": 33,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Back/walk/3": {
+      "frame": {
+        "x": 198,
+        "y": 33,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Back/mine/0": {
+      "frame": {
+        "x": 231,
+        "y": 33,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Back/mine/1": {
+      "frame": {
+        "x": 264,
+        "y": 33,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Back/mine/2": {
+      "frame": {
+        "x": 297,
+        "y": 33,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Back/mine/3": {
+      "frame": {
+        "x": 330,
+        "y": 33,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Right/base/0": {
+      "frame": {
+        "x": 0,
+        "y": 66,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Miner Right/idle/0": {
+      "frame": {
+        "x": 33,
+        "y": 66,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Right/idle/1": {
+      "frame": {
+        "x": 66,
+        "y": 66,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Right/Walk/0": {
+      "frame": {
+        "x": 99,
+        "y": 66,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Right/Walk/1": {
+      "frame": {
+        "x": 132,
+        "y": 66,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Right/Walk/2": {
+      "frame": {
+        "x": 165,
+        "y": 66,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Right/Walk/3": {
+      "frame": {
+        "x": 198,
+        "y": 66,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Right/miner/0": {
+      "frame": {
+        "x": 231,
+        "y": 66,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Right/miner/1": {
+      "frame": {
+        "x": 264,
+        "y": 66,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Right/miner/2": {
+      "frame": {
+        "x": 297,
+        "y": 66,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Right/miner/3": {
+      "frame": {
+        "x": 330,
+        "y": 66,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Left/base/0": {
+      "frame": {
+        "x": 0,
+        "y": 99,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Miner Left/idle/0": {
+      "frame": {
+        "x": 33,
+        "y": 99,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Left/idle/1": {
+      "frame": {
+        "x": 66,
+        "y": 99,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Left/walk/0": {
+      "frame": {
+        "x": 99,
+        "y": 99,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Left/walk/1": {
+      "frame": {
+        "x": 132,
+        "y": 99,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Left/walk/2": {
+      "frame": {
+        "x": 165,
+        "y": 99,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Left/walk/3": {
+      "frame": {
+        "x": 198,
+        "y": 99,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Left/mine/0": {
+      "frame": {
+        "x": 231,
+        "y": 99,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Left/mine/1": {
+      "frame": {
+        "x": 264,
+        "y": 99,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Left/mine/2": {
+      "frame": {
+        "x": 297,
+        "y": 99,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Miner Left/mine/3": {
+      "frame": {
+        "x": 330,
+        "y": 99,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Dino Front/base/0": {
+      "frame": {
+        "x": 0,
+        "y": 132,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Dino Front/walk/0": {
+      "frame": {
+        "x": 33,
+        "y": 132,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Dino Front/walk/1": {
+      "frame": {
+        "x": 66,
+        "y": 132,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Dino Front/walk/2": {
+      "frame": {
+        "x": 99,
+        "y": 132,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Dino Front/walk/3": {
+      "frame": {
+        "x": 132,
+        "y": 132,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Dino Back/base/0": {
+      "frame": {
+        "x": 0,
+        "y": 165,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Dino Back/walk/0": {
+      "frame": {
+        "x": 33,
+        "y": 165,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Dino Back/walk/1": {
+      "frame": {
+        "x": 66,
+        "y": 165,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Dino Back/walk/2": {
+      "frame": {
+        "x": 99,
+        "y": 165,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Dino Back/walk/3": {
+      "frame": {
+        "x": 132,
+        "y": 165,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Dino Right/base/0": {
+      "frame": {
+        "x": 0,
+        "y": 198,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Dino Right/walk/0": {
+      "frame": {
+        "x": 33,
+        "y": 198,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Dino Right/walk/1": {
+      "frame": {
+        "x": 66,
+        "y": 198,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Dino Right/walk/2": {
+      "frame": {
+        "x": 99,
+        "y": 198,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Dino Right/walk/3": {
+      "frame": {
+        "x": 132,
+        "y": 198,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Dino Left/base/0": {
+      "frame": {
+        "x": 0,
+        "y": 231,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Dino Left/walk/0": {
+      "frame": {
+        "x": 33,
+        "y": 231,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Dino Left/walk/1": {
+      "frame": {
+        "x": 66,
+        "y": 231,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Dino Left/walk/2": {
+      "frame": {
+        "x": 99,
+        "y": 231,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Dino Left/walk/3": {
+      "frame": {
+        "x": 132,
+        "y": 231,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Umbrekable Rock/base/0": {
+      "frame": {
+        "x": 0,
+        "y": 264,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Umbrekable Rock/wang16/0": {
+      "frame": {
+        "x": 33,
+        "y": 264,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Umbrekable Rock/wang16/1": {
+      "frame": {
+        "x": 66,
+        "y": 264,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Umbrekable Rock/wang16/2": {
+      "frame": {
+        "x": 99,
+        "y": 264,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Umbrekable Rock/wang16/3": {
+      "frame": {
+        "x": 132,
+        "y": 264,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Umbrekable Rock/wang16/4": {
+      "frame": {
+        "x": 165,
+        "y": 264,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Umbrekable Rock/wang16/5": {
+      "frame": {
+        "x": 198,
+        "y": 264,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Umbrekable Rock/wang16/6": {
+      "frame": {
+        "x": 231,
+        "y": 264,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Umbrekable Rock/wang16/7": {
+      "frame": {
+        "x": 264,
+        "y": 264,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Umbrekable Rock/wang16/8": {
+      "frame": {
+        "x": 297,
+        "y": 264,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Umbrekable Rock/wang16/9": {
+      "frame": {
+        "x": 330,
+        "y": 264,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Umbrekable Rock/wang16/10": {
+      "frame": {
+        "x": 363,
+        "y": 264,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Umbrekable Rock/wang16/11": {
+      "frame": {
+        "x": 396,
+        "y": 264,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Umbrekable Rock/wang16/12": {
+      "frame": {
+        "x": 429,
+        "y": 264,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Umbrekable Rock/wang16/13": {
+      "frame": {
+        "x": 462,
+        "y": 264,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Umbrekable Rock/wang16/14": {
+      "frame": {
+        "x": 495,
+        "y": 264,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Umbrekable Rock/wang16/15": {
+      "frame": {
+        "x": 528,
+        "y": 264,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Mineable Rock/base/0": {
+      "frame": {
+        "x": 0,
+        "y": 297,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Mineable Rock/wang16/0": {
+      "frame": {
+        "x": 33,
+        "y": 297,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Mineable Rock/wang16/1": {
+      "frame": {
+        "x": 66,
+        "y": 297,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Mineable Rock/wang16/2": {
+      "frame": {
+        "x": 99,
+        "y": 297,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Mineable Rock/wang16/3": {
+      "frame": {
+        "x": 132,
+        "y": 297,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Mineable Rock/wang16/4": {
+      "frame": {
+        "x": 165,
+        "y": 297,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Mineable Rock/wang16/5": {
+      "frame": {
+        "x": 198,
+        "y": 297,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Mineable Rock/wang16/6": {
+      "frame": {
+        "x": 231,
+        "y": 297,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Mineable Rock/wang16/7": {
+      "frame": {
+        "x": 264,
+        "y": 297,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Mineable Rock/wang16/8": {
+      "frame": {
+        "x": 297,
+        "y": 297,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Mineable Rock/wang16/9": {
+      "frame": {
+        "x": 330,
+        "y": 297,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Mineable Rock/wang16/10": {
+      "frame": {
+        "x": 363,
+        "y": 297,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Mineable Rock/wang16/11": {
+      "frame": {
+        "x": 396,
+        "y": 297,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Mineable Rock/wang16/12": {
+      "frame": {
+        "x": 429,
+        "y": 297,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Mineable Rock/wang16/13": {
+      "frame": {
+        "x": 462,
+        "y": 297,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Mineable Rock/wang16/14": {
+      "frame": {
+        "x": 495,
+        "y": 297,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Mineable Rock/wang16/15": {
+      "frame": {
+        "x": 528,
+        "y": 297,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Dirt/base/0": {
+      "frame": {
+        "x": 0,
+        "y": 330,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Rock Breaking/base/0": {
+      "frame": {
+        "x": 0,
+        "y": 363,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    },
+    "Rock Breaking/burst/0": {
+      "frame": {
+        "x": 33,
+        "y": 363,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Rock Breaking/burst/1": {
+      "frame": {
+        "x": 66,
+        "y": 363,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Rock Breaking/burst/2": {
+      "frame": {
+        "x": 99,
+        "y": 363,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Rock Breaking/burst/3": {
+      "frame": {
+        "x": 132,
+        "y": 363,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Rock Breaking/burst/4": {
+      "frame": {
+        "x": 165,
+        "y": 363,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Rock Breaking/burst/5": {
+      "frame": {
+        "x": 198,
+        "y": 363,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 125
+    },
+    "Gold/base/0": {
+      "frame": {
+        "x": 0,
+        "y": 396,
+        "w": 24,
+        "h": 24
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 24
+      },
+      "sourceSize": {
+        "w": 24,
+        "h": 24
+      },
+      "duration": 100
+    },
+    "Super Pickaxe/base/0": {
+      "frame": {
+        "x": 0,
+        "y": 421,
+        "w": 24,
+        "h": 24
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 24
+      },
+      "sourceSize": {
+        "w": 24,
+        "h": 24
+      },
+      "duration": 100
+    },
+    "Jar of stench/base/0": {
+      "frame": {
+        "x": 0,
+        "y": 446,
+        "w": 24,
+        "h": 24
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 24
+      },
+      "sourceSize": {
+        "w": 24,
+        "h": 24
+      },
+      "duration": 100
+    },
+    "Heart/base/0": {
+      "frame": {
+        "x": 0,
+        "y": 471,
+        "w": 24,
+        "h": 24
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 24
+      },
+      "sourceSize": {
+        "w": 24,
+        "h": 24
+      },
+      "duration": 100
+    },
+    "Buy Heart/base/0": {
+      "frame": {
+        "x": 0,
+        "y": 496,
+        "w": 24,
+        "h": 24
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 24
+      },
+      "sourceSize": {
+        "w": 24,
+        "h": 24
+      },
+      "duration": 100
+    },
+    "Boot/base/0": {
+      "frame": {
+        "x": 0,
+        "y": 521,
+        "w": 24,
+        "h": 24
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 24
+      },
+      "sourceSize": {
+        "w": 24,
+        "h": 24
+      },
+      "duration": 100
+    },
+    "Pickaxe/base/0": {
+      "frame": {
+        "x": 0,
+        "y": 546,
+        "w": 24,
+        "h": 24
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 24
+      },
+      "sourceSize": {
+        "w": 24,
+        "h": 24
+      },
+      "duration": 100
+    },
+    "Button/base/0": {
+      "frame": {
+        "x": 0,
+        "y": 571,
+        "w": 48,
+        "h": 16
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 48,
+        "h": 16
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 16
+      },
+      "duration": 100
+    },
+    "Button/hover · pressed · disabled/0": {
+      "frame": {
+        "x": 49,
+        "y": 571,
+        "w": 48,
+        "h": 16
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 48,
+        "h": 16
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 16
+      },
+      "duration": 100
+    },
+    "Button/hover · pressed · disabled/1": {
+      "frame": {
+        "x": 98,
+        "y": 571,
+        "w": 48,
+        "h": 16
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 48,
+        "h": 16
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 16
+      },
+      "duration": 100
+    },
+    "Button/hover · pressed · disabled/2": {
+      "frame": {
+        "x": 147,
+        "y": 571,
+        "w": 48,
+        "h": 16
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 48,
+        "h": 16
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 16
+      },
+      "duration": 100
+    },
+    "Base GUI panel/base/0": {
+      "frame": {
+        "x": 0,
+        "y": 588,
+        "w": 64,
+        "h": 48
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 64,
+        "h": 48
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 48
+      },
+      "duration": 100
+    },
+    "Adjustable Bar/base/0": {
+      "frame": {
+        "x": 0,
+        "y": 637,
+        "w": 96,
+        "h": 24
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 96,
+        "h": 24
+      },
+      "sourceSize": {
+        "w": 96,
+        "h": 24
+      },
+      "duration": 100
+    },
+    "Adjustable Bar/hover · pressed · disabled/0": {
+      "frame": {
+        "x": 97,
+        "y": 637,
+        "w": 96,
+        "h": 24
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 96,
+        "h": 24
+      },
+      "sourceSize": {
+        "w": 96,
+        "h": 24
+      },
+      "duration": 100
+    },
+    "Adjustable Bar/hover · pressed · disabled/1": {
+      "frame": {
+        "x": 194,
+        "y": 637,
+        "w": 96,
+        "h": 24
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 96,
+        "h": 24
+      },
+      "sourceSize": {
+        "w": 96,
+        "h": 24
+      },
+      "duration": 100
+    },
+    "Adjustable Bar/hover · pressed · disabled/2": {
+      "frame": {
+        "x": 291,
+        "y": 637,
+        "w": 96,
+        "h": 24
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 96,
+        "h": 24
+      },
+      "sourceSize": {
+        "w": 96,
+        "h": 24
+      },
+      "duration": 100
+    },
+    "ScrollBar fill/base/0": {
+      "frame": {
+        "x": 0,
+        "y": 662,
+        "w": 32,
+        "h": 32
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 32
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 32
+      },
+      "duration": 100
+    }
+  },
+  "meta": {
+    "app": "pixelhench",
+    "version": "pixelhench-1.0",
+    "image": "My project atlas.png",
+    "format": "RGBA8888",
+    "size": {
+      "w": 560,
+      "h": 694
+    },
+    "scale": "1",
+    "frameTags": [
+      {
+        "name": "Miner Front/idle",
+        "from": 1,
+        "to": 2,
+        "direction": "forward",
+        "color": "#000000ff"
+      },
+      {
+        "name": "Miner Front/walk",
+        "from": 3,
+        "to": 6,
+        "direction": "forward",
+        "color": "#000000ff"
+      },
+      {
+        "name": "Miner Front/mine",
+        "from": 7,
+        "to": 10,
+        "direction": "forward",
+        "color": "#000000ff"
+      },
+      {
+        "name": "Miner Back/idle",
+        "from": 12,
+        "to": 13,
+        "direction": "forward",
+        "color": "#000000ff"
+      },
+      {
+        "name": "Miner Back/walk",
+        "from": 14,
+        "to": 17,
+        "direction": "forward",
+        "color": "#000000ff"
+      },
+      {
+        "name": "Miner Back/mine",
+        "from": 18,
+        "to": 21,
+        "direction": "forward",
+        "color": "#000000ff"
+      },
+      {
+        "name": "Miner Right/idle",
+        "from": 23,
+        "to": 24,
+        "direction": "forward",
+        "color": "#000000ff"
+      },
+      {
+        "name": "Miner Right/Walk",
+        "from": 25,
+        "to": 28,
+        "direction": "forward",
+        "color": "#000000ff"
+      },
+      {
+        "name": "Miner Right/miner",
+        "from": 29,
+        "to": 32,
+        "direction": "forward",
+        "color": "#000000ff"
+      },
+      {
+        "name": "Miner Left/idle",
+        "from": 34,
+        "to": 35,
+        "direction": "forward",
+        "color": "#000000ff"
+      },
+      {
+        "name": "Miner Left/walk",
+        "from": 36,
+        "to": 39,
+        "direction": "forward",
+        "color": "#000000ff"
+      },
+      {
+        "name": "Miner Left/mine",
+        "from": 40,
+        "to": 43,
+        "direction": "forward",
+        "color": "#000000ff"
+      },
+      {
+        "name": "Dino Front/walk",
+        "from": 45,
+        "to": 48,
+        "direction": "forward",
+        "color": "#000000ff"
+      },
+      {
+        "name": "Dino Back/walk",
+        "from": 50,
+        "to": 53,
+        "direction": "forward",
+        "color": "#000000ff"
+      },
+      {
+        "name": "Dino Right/walk",
+        "from": 55,
+        "to": 58,
+        "direction": "forward",
+        "color": "#000000ff"
+      },
+      {
+        "name": "Dino Left/walk",
+        "from": 60,
+        "to": 63,
+        "direction": "forward",
+        "color": "#000000ff"
+      },
+      {
+        "name": "Umbrekable Rock/wang16",
+        "from": 65,
+        "to": 80,
+        "direction": "forward",
+        "repeat": "1",
+        "color": "#000000ff"
+      },
+      {
+        "name": "Mineable Rock/wang16",
+        "from": 82,
+        "to": 97,
+        "direction": "forward",
+        "repeat": "1",
+        "color": "#000000ff"
+      },
+      {
+        "name": "Rock Breaking/burst",
+        "from": 100,
+        "to": 105,
+        "direction": "forward",
+        "repeat": "1",
+        "color": "#000000ff"
+      },
+      {
+        "name": "Button/hover · pressed · disabled",
+        "from": 114,
+        "to": 116,
+        "direction": "forward",
+        "repeat": "1",
+        "color": "#000000ff"
+      },
+      {
+        "name": "Adjustable Bar/hover · pressed · disabled",
+        "from": 119,
+        "to": 121,
+        "direction": "forward",
+        "repeat": "1",
+        "color": "#000000ff"
+      }
+    ],
+    "slices": [
+      {
+        "name": "Miner Front/pivot",
+        "color": "#0000ffff",
+        "keys": [
+          {
+            "frame": 0,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "w": 32,
+              "h": 32
+            },
+            "pivot": {
+              "x": 16,
+              "y": 31
+            }
+          }
+        ]
+      },
+      {
+        "name": "Miner Back/pivot",
+        "color": "#0000ffff",
+        "keys": [
+          {
+            "frame": 11,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "w": 32,
+              "h": 32
+            },
+            "pivot": {
+              "x": 16,
+              "y": 31
+            }
+          }
+        ]
+      },
+      {
+        "name": "Miner Right/pivot",
+        "color": "#0000ffff",
+        "keys": [
+          {
+            "frame": 22,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "w": 32,
+              "h": 32
+            },
+            "pivot": {
+              "x": 16,
+              "y": 31
+            }
+          }
+        ]
+      },
+      {
+        "name": "Miner Left/pivot",
+        "color": "#0000ffff",
+        "keys": [
+          {
+            "frame": 33,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "w": 32,
+              "h": 32
+            },
+            "pivot": {
+              "x": 16,
+              "y": 31
+            }
+          }
+        ]
+      },
+      {
+        "name": "Dino Front/pivot",
+        "color": "#0000ffff",
+        "keys": [
+          {
+            "frame": 44,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "w": 32,
+              "h": 32
+            },
+            "pivot": {
+              "x": 16,
+              "y": 31
+            }
+          }
+        ]
+      },
+      {
+        "name": "Dino Back/pivot",
+        "color": "#0000ffff",
+        "keys": [
+          {
+            "frame": 49,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "w": 32,
+              "h": 32
+            },
+            "pivot": {
+              "x": 16,
+              "y": 31
+            }
+          }
+        ]
+      },
+      {
+        "name": "Dino Right/pivot",
+        "color": "#0000ffff",
+        "keys": [
+          {
+            "frame": 54,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "w": 32,
+              "h": 32
+            },
+            "pivot": {
+              "x": 16,
+              "y": 31
+            }
+          }
+        ]
+      },
+      {
+        "name": "Dino Left/pivot",
+        "color": "#0000ffff",
+        "keys": [
+          {
+            "frame": 59,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "w": 32,
+              "h": 32
+            },
+            "pivot": {
+              "x": 16,
+              "y": 31
+            }
+          }
+        ]
+      },
+      {
+        "name": "Rock Breaking/pivot",
+        "color": "#0000ffff",
+        "keys": [
+          {
+            "frame": 99,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "w": 32,
+              "h": 32
+            },
+            "pivot": {
+              "x": 16,
+              "y": 31
+            }
+          }
+        ]
+      },
+      {
+        "name": "Gold/pivot",
+        "color": "#0000ffff",
+        "keys": [
+          {
+            "frame": 106,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "w": 24,
+              "h": 24
+            },
+            "pivot": {
+              "x": 12,
+              "y": 23
+            }
+          }
+        ]
+      },
+      {
+        "name": "Super Pickaxe/pivot",
+        "color": "#0000ffff",
+        "keys": [
+          {
+            "frame": 107,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "w": 24,
+              "h": 24
+            },
+            "pivot": {
+              "x": 12,
+              "y": 23
+            }
+          }
+        ]
+      },
+      {
+        "name": "Jar of stench/pivot",
+        "color": "#0000ffff",
+        "keys": [
+          {
+            "frame": 108,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "w": 24,
+              "h": 24
+            },
+            "pivot": {
+              "x": 12,
+              "y": 23
+            }
+          }
+        ]
+      },
+      {
+        "name": "Heart/pivot",
+        "color": "#0000ffff",
+        "keys": [
+          {
+            "frame": 109,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "w": 24,
+              "h": 24
+            },
+            "pivot": {
+              "x": 12,
+              "y": 23
+            }
+          }
+        ]
+      },
+      {
+        "name": "Buy Heart/pivot",
+        "color": "#0000ffff",
+        "keys": [
+          {
+            "frame": 110,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "w": 24,
+              "h": 24
+            },
+            "pivot": {
+              "x": 12,
+              "y": 23
+            }
+          }
+        ]
+      },
+      {
+        "name": "Boot/pivot",
+        "color": "#0000ffff",
+        "keys": [
+          {
+            "frame": 111,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "w": 24,
+              "h": 24
+            },
+            "pivot": {
+              "x": 12,
+              "y": 23
+            }
+          }
+        ]
+      },
+      {
+        "name": "Pickaxe/pivot",
+        "color": "#0000ffff",
+        "keys": [
+          {
+            "frame": 112,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "w": 24,
+              "h": 24
+            },
+            "pivot": {
+              "x": 12,
+              "y": 23
+            }
+          }
+        ]
+      },
+      {
+        "name": "Button/9slice",
+        "color": "#0000ffff",
+        "keys": [
+          {
+            "frame": 113,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "w": 48,
+              "h": 16
+            },
+            "center": {
+              "x": 4,
+              "y": 4,
+              "w": 40,
+              "h": 8
+            }
+          }
+        ]
+      },
+      {
+        "name": "Base GUI panel/9slice",
+        "color": "#0000ffff",
+        "keys": [
+          {
+            "frame": 117,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "w": 64,
+              "h": 48
+            },
+            "center": {
+              "x": 10,
+              "y": 10,
+              "w": 44,
+              "h": 28
+            }
+          }
+        ]
+      },
+      {
+        "name": "Adjustable Bar/9slice",
+        "color": "#0000ffff",
+        "keys": [
+          {
+            "frame": 118,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "w": 96,
+              "h": 24
+            },
+            "center": {
+              "x": 9,
+              "y": 9,
+              "w": 78,
+              "h": 6
+            }
+          }
+        ]
+      },
+      {
+        "name": "ScrollBar fill/9slice",
+        "color": "#0000ffff",
+        "keys": [
+          {
+            "frame": 122,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "w": 32,
+              "h": 32
+            },
+            "center": {
+              "x": 6,
+              "y": 6,
+              "w": 13,
+              "h": 20
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
