@@ -19,12 +19,26 @@
 //! 4-bit mask and the per-family row are the only things this module decides —
 //! the concrete atlas `(row, col)` lives in the asset layer.
 
+//! There are three visual families, drawn with a **priority ordering**:
+//!   Unbreakable > Mineable > Dirt
+//! Only the *higher*-priority material draws a border where two differ; the
+//! lower one merges beneath it (appears to be slides under the higher one).
+//! - Unbreakable always draws borders toward Mineable and Dirt.
+//! - Mineable draws borders toward Dirt but merges under Unbreakable.
+//! - Dirt is always flat (the bottom layer).
+//!
+//! Rocks draw edges toward any lower-priority material; dirt is always drawn
+//! flat. The 4-bit mask and the per-family row are the only things this module
+//! decides — the concrete atlas `(row, col)` lives in the asset layer.
+
 use crate::game::map::Tile;
 
 /// The terrain-family + Wang-mask selection for a cell.
 ///
 /// `Dirt` carries no mask (it is a flat fill). `Mineable`/`Unbreakable` carry a
-/// 4-bit mask of which cardinal neighbours share the same material.
+/// 4-bit mask of which cardinal neighbours are equal-or-higher priority (the
+/// closed sides, no border). A cleared bit means a lower-priority neighbour is
+/// on that side, so a border is drawn there.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TerrainTile {
     /// Flat dirt path.
@@ -39,13 +53,21 @@ pub enum TerrainTile {
 pub fn tile_atlas(center: Tile, n: Tile, e: Tile, s: Tile, w: Tile) -> TerrainTile {
     match center {
         Tile::Mineable | Tile::Unmineable => {
-            TerrainTile::Mineable(mask(n, e, s, w, |t| matches!(t, Tile::Mineable | Tile::Unmineable)))
+            TerrainTile::Mineable(mask(n, e, s, w, |t| minable_merges(t)))
         }
         Tile::Unbreakable => {
             TerrainTile::Unbreakable(mask(n, e, s, w, |t| t == Tile::Unbreakable))
         }
         Tile::Dirt => TerrainTile::Dirt,
     }
+}
+
+/// Whether a mineable cell merges (no border) with a neighbour `t`.
+///
+/// It merges under unbreakable rock (higher priority) and with other mineable
+/// rock of the same family; only dirt (lower priority) draws a border.
+fn minable_merges(t: Tile) -> bool {
+    matches!(t, Tile::Mineable | Tile::Unmineable | Tile::Unbreakable)
 }
 
 /// Build a 4-bit mask (N=1, E=2, S=4, W=8) where a bit is *set* when the
@@ -72,38 +94,32 @@ fn mask(n: Tile, e: Tile, s: Tile, w: Tile, same: impl Fn(Tile) -> bool) -> u8 {
 /// bevels reveal the right material instead of the clear-colour background.
 ///
 /// A Wang rock tile is opaque everywhere except a thin transparent strip on the
-/// sides where the neighbour is a *differing* material. That strip shows
-/// whatever is drawn beneath. We therefore pick the material the rock is
-/// transitioning into: the `Dirt` it borders (the excavated ground), or a
-/// different rock family, and return `None` when the tile is fully merged
-/// (interior, mask 15, fully opaque) so no underlay is needed.
-///
-/// `Mineable`/`Unbreakable` is chosen by the *other* rock family, matching the
-/// tileset's per-family transition tiles (e.g. unbreakable rock bordered by
-/// mineable uses the mineable fill as its backdrop).
+/// sides where it draws a border (a strictly lower-priority neighbour). That
+/// strip shows whatever is drawn beneath, so we reveal the lower material:
+/// - Mineable rock only borders dirt, so it reveals the dirt fill.
+/// - Unbreakable rock borders both mineable and dirt, so it reveals the
+///   lower-priority material it sits above.
+/// `None` means the tile is fully merged (all sides closed, opaque) — no bevel.
 pub fn underlay(center: Tile, n: Tile, e: Tile, s: Tile, w: Tile) -> Option<TerrainTile> {
     let neighbours = [n, e, s, w];
     match center {
         Tile::Dirt => None,
         Tile::Mineable | Tile::Unmineable => {
-            let has_dirt = neighbours.contains(&Tile::Dirt);
-            let has_other_rock = neighbours.iter().any(|&t| t == Tile::Unbreakable);
-            if has_dirt {
+            if neighbours.contains(&Tile::Dirt) {
                 Some(TerrainTile::Dirt)
-            } else if has_other_rock {
-                Some(TerrainTile::Unbreakable(15))
             } else {
                 None
             }
         }
         Tile::Unbreakable => {
             let has_dirt = neighbours.contains(&Tile::Dirt);
-            let has_other_rock = neighbours
+            let has_mineable = neighbours
                 .iter()
                 .any(|&t| matches!(t, Tile::Mineable | Tile::Unmineable));
+            // Dirt is the lowest priority; reveal it first (it sits beneath).
             if has_dirt {
                 Some(TerrainTile::Dirt)
-            } else if has_other_rock {
+            } else if has_mineable {
                 Some(TerrainTile::Mineable(15))
             } else {
                 None
@@ -125,8 +141,9 @@ mod tests {
         let inner = Tile::Mineable;
         assert_eq!(tile_atlas(Tile::Mineable, inner, inner, inner, inner), TerrainTile::Mineable(15));
         assert_eq!(tile_atlas(Tile::Unmineable, inner, inner, inner, inner), TerrainTile::Mineable(15));
-        // Surrounded by unbreakable rock: no mineable merge -> isolated border.
-        assert_eq!(tile_atlas(Tile::Mineable, ub, ub, ub, ub), TerrainTile::Mineable(0));
+        // Surrounded by unbreakable rock (higher priority): mineable merges
+        // beneath it, so no border is drawn at all.
+        assert_eq!(tile_atlas(Tile::Mineable, ub, ub, ub, ub), TerrainTile::Mineable(15));
         // Unbreakable fully surrounded by unbreakable merges.
         assert_eq!(tile_atlas(Tile::Unbreakable, ub, ub, ub, ub), TerrainTile::Unbreakable(15));
         // Dirt is flat regardless of neighbours.
@@ -190,6 +207,26 @@ mod tests {
     }
 
     #[test]
+    fn priority_only_higher_material_draws_a_border() {
+        let m = Tile::Mineable;
+        let ub = Tile::Unbreakable;
+        let d = Tile::Dirt;
+
+        // Unbreakable -> mineable: the unbreakable borders the mineable
+        // (higher-priority side draws the border).
+        assert_eq!(tile_atlas(Tile::Unbreakable, ub, m, ub, ub), TerrainTile::Unbreakable(0b1111 - 2));
+        // Mineable -> unbreakable: the mineable does NOT border, it merges under.
+        assert_eq!(tile_atlas(Tile::Mineable, m, ub, m, m), TerrainTile::Mineable(0b1111));
+
+        // Unbreakable -> dirt: unbreakable borders.
+        assert_eq!(tile_atlas(Tile::Unbreakable, ub, d, ub, ub), TerrainTile::Unbreakable(0b1111 - 2));
+        // Mineable -> dirt: mineable borders.
+        assert_eq!(tile_atlas(Tile::Mineable, m, d, m, m), TerrainTile::Mineable(0b1111 - 2));
+        // Dirt is flat; it never draws a border.
+        assert_eq!(tile_atlas(Tile::Dirt, m, ub, d, m), TerrainTile::Dirt);
+    }
+
+    #[test]
     fn underlay_reveals_dirt_for_rock_in_dirt() {
         let rk = Tile::Mineable;
         let d = Tile::Dirt;
@@ -203,10 +240,12 @@ mod tests {
     fn underlay_reveals_other_rock_family() {
         let m = Tile::Mineable;
         let ub = Tile::Unbreakable;
-        // Unbreakable rock bordering mineable -> draw mineable beneath.
+        // Unbreakable rock bordering mineable -> draw mineable beneath so its
+        // border bevel blends into the mineable it sits above.
         assert_eq!(underlay(Tile::Unbreakable, ub, m, ub, ub), Some(TerrainTile::Mineable(15)));
-        // Mineable rock bordering unbreakable -> draw unbreakable beneath.
-        assert_eq!(underlay(Tile::Mineable, m, m, ub, m), Some(TerrainTile::Unbreakable(15)));
+        // Mineable rock bordering unbreakable: mineable now merges flat under
+        // the unbreakable (no bevel), so it needs no underlay.
+        assert_eq!(underlay(Tile::Mineable, m, m, ub, m), None);
     }
 
     #[test]
