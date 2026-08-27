@@ -68,6 +68,50 @@ fn mask(n: Tile, e: Tile, s: Tile, w: Tile, same: impl Fn(Tile) -> bool) -> u8 {
     m
 }
 
+/// The flat fill to draw **underneath** a rock tile so its transparent border
+/// bevels reveal the right material instead of the clear-colour background.
+///
+/// A Wang rock tile is opaque everywhere except a thin transparent strip on the
+/// sides where the neighbour is a *differing* material. That strip shows
+/// whatever is drawn beneath. We therefore pick the material the rock is
+/// transitioning into: the `Dirt` it borders (the excavated ground), or a
+/// different rock family, and return `None` when the tile is fully merged
+/// (interior, mask 15, fully opaque) so no underlay is needed.
+///
+/// `Mineable`/`Unbreakable` is chosen by the *other* rock family, matching the
+/// tileset's per-family transition tiles (e.g. unbreakable rock bordered by
+/// mineable uses the mineable fill as its backdrop).
+pub fn underlay(center: Tile, n: Tile, e: Tile, s: Tile, w: Tile) -> Option<TerrainTile> {
+    let neighbours = [n, e, s, w];
+    match center {
+        Tile::Dirt => None,
+        Tile::Mineable | Tile::Unmineable => {
+            let has_dirt = neighbours.contains(&Tile::Dirt);
+            let has_other_rock = neighbours.iter().any(|&t| t == Tile::Unbreakable);
+            if has_dirt {
+                Some(TerrainTile::Dirt)
+            } else if has_other_rock {
+                Some(TerrainTile::Unbreakable(15))
+            } else {
+                None
+            }
+        }
+        Tile::Unbreakable => {
+            let has_dirt = neighbours.contains(&Tile::Dirt);
+            let has_other_rock = neighbours
+                .iter()
+                .any(|&t| matches!(t, Tile::Mineable | Tile::Unmineable));
+            if has_dirt {
+                Some(TerrainTile::Dirt)
+            } else if has_other_rock {
+                Some(TerrainTile::Mineable(15))
+            } else {
+                None
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -143,5 +187,37 @@ mod tests {
         assert_eq!(tile_atlas(Tile::Mineable, f, f, rk, f), TerrainTile::Mineable(4));
         // Rock to the left only.
         assert_eq!(tile_atlas(Tile::Mineable, f, f, f, rk), TerrainTile::Mineable(8));
+    }
+
+    #[test]
+    fn underlay_reveals_dirt_for_rock_in_dirt() {
+        let rk = Tile::Mineable;
+        let d = Tile::Dirt;
+        // Rock with a dirt neighbour below -> draw dirt beneath so the south
+        // bevel shows the ground.
+        assert_eq!(underlay(Tile::Mineable, rk, rk, d, rk), Some(TerrainTile::Dirt));
+        assert_eq!(underlay(Tile::Unbreakable, rk, rk, d, rk), Some(TerrainTile::Dirt));
+    }
+
+    #[test]
+    fn underlay_reveals_other_rock_family() {
+        let m = Tile::Mineable;
+        let ub = Tile::Unbreakable;
+        // Unbreakable rock bordering mineable -> draw mineable beneath.
+        assert_eq!(underlay(Tile::Unbreakable, ub, m, ub, ub), Some(TerrainTile::Mineable(15)));
+        // Mineable rock bordering unbreakable -> draw unbreakable beneath.
+        assert_eq!(underlay(Tile::Mineable, m, m, ub, m), Some(TerrainTile::Unbreakable(15)));
+    }
+
+    #[test]
+    fn underlay_none_for_merged_or_dirt() {
+        let m = Tile::Mineable;
+        let ub = Tile::Unbreakable;
+        let d = Tile::Dirt;
+        // Fully merged interior -> tile is opaque, no underlay needed.
+        assert_eq!(underlay(Tile::Mineable, m, m, m, m), None);
+        assert_eq!(underlay(Tile::Unbreakable, ub, ub, ub, ub), None);
+        // Dirt has no overlay tile -> no underlay.
+        assert_eq!(underlay(Tile::Dirt, m, ub, d, m), None);
     }
 }

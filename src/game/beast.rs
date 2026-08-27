@@ -10,10 +10,11 @@ use macroquad::prelude::Vec2;
 
 use super::map::Map;
 use super::movement;
+use super::TILE_SIZE;
 use crate::assets::ids::{BeastMotion, Direction, WALK_FRAMES};
 
-/// Beast walk speed, world px/s.
-pub const BEAST_SPEED: f32 = 70.0;
+/// Beast walk speed, world px/s (roughly half the player's 240 px/s).
+pub const BEAST_SPEED: f32 = 140.0;
 
 /// Seconds per beast walk-frame (four-frame cycle, per atlas timing).
 const WALK_FRAME_TIME: f32 = 0.1;
@@ -84,7 +85,7 @@ mod tests {
     }
 
     fn center_of(c: (i32, i32)) -> Vec2 {
-        Vec2::new(c.0 as f32 * 16.0 + 8.0, c.1 as f32 * 16.0 + 8.0)
+        Vec2::new(c.0 as f32 * TILE_SIZE + TILE_SIZE / 2.0, c.1 as f32 * TILE_SIZE + TILE_SIZE / 2.0)
     }
 
     #[test]
@@ -112,7 +113,7 @@ mod tests {
         for _ in 0..120 {
             b.update(player, &map, 1.0 / 60.0);
         }
-        assert!(b.pos.x < 2.0 * 16.0, "beast must not pass the rock");
+        assert!(b.pos.x < 2.0 * TILE_SIZE, "beast must not pass the rock");
     }
 
     #[test]

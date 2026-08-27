@@ -14,8 +14,8 @@ use crate::game::terrain;
 use crate::game::TILE_SIZE;
 use crate::input;
 
-/// Default camera zoom: a 16 px tile renders at 32 px on screen.
-const DEFAULT_ZOOM: f32 = 2.0;
+/// Default camera zoom: a 32 px tile renders at 32 px on screen (native).
+const DEFAULT_ZOOM: f32 = 1.0;
 
 /// Clear color (dark blue-grey) behind the map.
 const BG_COLOR: Color = Color::new(24.0 / 255.0, 24.0 / 255.0, 34.0 / 255.0, 1.0);
@@ -144,8 +144,14 @@ impl App {
                 let s = self.map.tile(x as i32, y as i32 + 1);
                 let w = self.map.tile(x as i32 - 1, y as i32);
                 let sel = terrain::tile_atlas(tile, n, e, s, w);
-                let tex = self.assets.tile(sel);
-                self.draw_tile_at(tex, x as f32, y as f32);
+                // The Wang tile has transparent border-bevel strips that reveal
+                // whatever sits beneath (e.g. dirt the rock borders). Draw that
+                // underlay first so the edges blend into the ground instead of
+                // showing the clear-colour background.
+                if let Some(under) = terrain::underlay(tile, n, e, s, w) {
+                    self.draw_tile_at(self.assets.tile(under), x as f32, y as f32);
+                }
+                self.draw_tile_at(self.assets.tile(sel), x as f32, y as f32);
             }
         }
     }

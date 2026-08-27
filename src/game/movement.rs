@@ -5,8 +5,8 @@ use macroquad::prelude::Vec2;
 use super::map::Map;
 use super::TILE_SIZE;
 
-/// Half-extent of an entity's square hitbox (12×12 inside a 16×16 tile).
-pub const HITBOX_HALF: f32 = 6.0;
+/// Half-extent of an entity's square hitbox (24×24 inside a 32×32 tile).
+pub const HITBOX_HALF: f32 = 12.0;
 
 /// Sub-step size used when resolving movement, kept below `HITBOX_HALF` so an
 /// entity can never tunnel through a tile at any speed or dt.

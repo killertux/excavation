@@ -11,5 +11,6 @@ pub mod pathfinding;
 pub mod player;
 pub mod terrain;
 
-/// Logical tile size, in world pixels. Every cell is a 16×16 tile.
-pub const TILE_SIZE: f32 = 16.0;
+/// Logical tile size, in world pixels. Every cell is a 32×32 tile (the atlas
+/// cells are 32 px, rendered at native resolution).
+pub const TILE_SIZE: f32 = 32.0;

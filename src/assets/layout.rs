@@ -2,8 +2,8 @@
 //!
 //! This module decodes an RGBA image, splits it into a uniform `rows × cols`
 //! grid (the committed atlases are tightly-packed modular grids with no
-//! transparent gutters), crops each cell, and rescales the result to a 16×16
-//! RGBA buffer. It is fully unit-testable without a window.
+//! transparent gutters), crops each cell, and rescales the result to a
+//! [`TILE_SIZE`] RGBA buffer. It is fully unit-testable without a window.
 //!
 //! ## Layout model
 //!
@@ -14,13 +14,14 @@
 use image::imageops::FilterType;
 use image::RgbaImage;
 
-/// Target tile size, in pixels (each axis).
-pub const TILE_SIZE: u32 = 16;
+/// Target tile size, in pixels (each axis). Matches the atlas cell size so the
+/// combined atlas is sliced at native resolution (no resampling blur).
+pub const TILE_SIZE: u32 = 32;
 
-/// How to map a cropped source region onto the 16×16 tile.
+/// How to map a cropped source region onto the [`TILE_SIZE`] tile.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ScaleMode {
-    /// Non-uniform resize to exactly 16×16 (fills the tile; may distort aspect).
+    /// Non-uniform resize to exactly `TILE_SIZE` (fills the tile; may distort).
     Stretch,
     /// Aspect-preserving resize, centered on the tile with transparent padding.
     Fit,
@@ -161,12 +162,12 @@ fn grid_rects(width: u32, height: u32, rows: usize, cols: usize) -> Vec<Rect> {
     rects
 }
 
-/// Crop `rect` from `img` and resize the result to a 16×16 RGBA buffer.
+/// Crop `rect` from `img` and resize the result to a [`TILE_SIZE`] RGBA buffer.
 fn crop_and_resize(img: &RgbaImage, rect: &Rect, scale_mode: ScaleMode) -> Vec<u8> {
     let crop = image::imageops::crop_imm(img, rect.x, rect.y, rect.w, rect.h).to_image();
     let out = match scale_mode {
         ScaleMode::Stretch => {
-            image::imageops::resize(&crop, TILE_SIZE, TILE_SIZE, FilterType::Triangle)
+            image::imageops::resize(&crop, TILE_SIZE, TILE_SIZE, FilterType::Nearest)
         }
         ScaleMode::Fit => fit_resize(&crop, TILE_SIZE, TILE_SIZE),
     };
@@ -180,7 +181,7 @@ fn fit_resize(img: &RgbaImage, target_w: u32, target_h: u32) -> RgbaImage {
     let nw = ((w as f32 * scale).round() as u32).max(1);
     let nh = ((h as f32 * scale).round() as u32).max(1);
 
-    let resized = image::imageops::resize(img, nw, nh, FilterType::Triangle);
+    let resized = image::imageops::resize(img, nw, nh, FilterType::Nearest);
 
     let mut canvas = RgbaImage::new(target_w, target_h);
     let ox = ((target_w - nw) / 2) as i64;
