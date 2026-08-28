@@ -4,6 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::audio::Sfx;
 use crate::config::game::GameConfig;
 use crate::config::map::MapConfig;
 use crate::game::consumables::{self, ConsumableKind, Consumables};
@@ -58,6 +59,9 @@ pub struct Run {
     map_cfgs: Vec<MapConfig>,
     cfg: GameConfig,
     pub level: Level,
+    /// One-shot sound effects reported since the last drain: this run's own
+    /// (consumable activations) plus the level's (rock breaks, gold pickups).
+    sound_events: Vec<Sfx>,
 }
 
 impl Run {
@@ -77,6 +81,7 @@ impl Run {
             map_cfgs,
             cfg,
             level,
+            sound_events: Vec::new(),
         })
     }
 
@@ -134,6 +139,7 @@ impl Run {
             map_cfgs,
             cfg,
             level,
+            sound_events: Vec::new(),
         })
     }
 
@@ -150,6 +156,7 @@ impl Run {
         if self.lives == 0 {
             self.lives = self.cfg.player.starting_lives;
         }
+        self.sound_events.clear();
         let map_cfg = self.map_cfgs[index].clone();
         self.level = build_level(&self.cfg, &map_cfg, &self.upgrades)?;
         Ok(())
@@ -183,7 +190,21 @@ impl Run {
         if self.consumables.use_one(kind) {
             let d = consumables::duration(kind, &self.cfg.consumables);
             self.level.start_effect(kind, d);
+            let sfx = match kind {
+                ConsumableKind::SuperPick => Sfx::SuperPick,
+                ConsumableKind::StickySmell => Sfx::StickySmell,
+            };
+            self.sound_events.push(sfx);
         }
+    }
+
+    /// Take all one-shot sound effects reported since the last call: this run's
+    /// own (consumable activations) plus the current level's (rock breaks, gold
+    /// pickups). The caller plays them through the audio layer.
+    pub fn drain_sounds(&mut self) -> Vec<Sfx> {
+        let mut out = std::mem::take(&mut self.sound_events);
+        out.extend(self.level.drain_sounds());
+        out
     }
 
     /// A catch costs a life; 0 lives is game over, else restart the level.
@@ -217,6 +238,7 @@ impl Run {
     /// score. The consumable effect resets (owned counts persist).
     pub fn begin_next_level(&mut self) -> Result<RunEvent, generation::GenError> {
         self.level_index += 1;
+        self.sound_events.clear();
         let map_cfg = self.map_cfgs.get(self.level_index).cloned().ok_or(generation::GenError::NoPath)?;
         self.level = build_level(&self.cfg, &map_cfg, &self.upgrades)?;
         Ok(RunEvent::Playing)
@@ -433,6 +455,30 @@ mod tests {
         let input2 = Input { move_: Default::default(), use_super_pick: true, use_sticky_smell: false };
         let _ = r.update(input2, 1.0 / 60.0);
         assert!(r.level.active_effect.is_some(), "effect still active (nothing to re-use)");
+    }
+
+    #[test]
+    fn use_consumables_reports_sound_events() {
+        let mut r = run(12345);
+        r.consumables.add(ConsumableKind::SuperPick);
+        r.consumables.add(ConsumableKind::StickySmell);
+        let input = Input { move_: Default::default(), use_super_pick: true, use_sticky_smell: true };
+        let ev = r.update(input, 1.0 / 60.0);
+        assert_eq!(ev, RunEvent::Playing);
+        let sounds = r.drain_sounds();
+        assert!(sounds.contains(&Sfx::SuperPick), "using a Super Pick reports it, got {sounds:?}");
+        assert!(sounds.contains(&Sfx::StickySmell), "using Sticky Smell reports it, got {sounds:?}");
+    }
+
+    #[test]
+    fn use_consumable_with_none_owned_reports_nothing() {
+        let mut r = run(12345);
+        // No consumables owned; pressing the use key must not emit a sound.
+        let input = Input { move_: Default::default(), use_super_pick: true, use_sticky_smell: true };
+        let _ = r.update(input, 1.0 / 60.0);
+        let sounds = r.drain_sounds();
+        assert!(!sounds.contains(&Sfx::SuperPick), "no owned pick -> no super-pick sound");
+        assert!(!sounds.contains(&Sfx::StickySmell), "no owned smell -> no sticky sound");
     }
 
     #[test]

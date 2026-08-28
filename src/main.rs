@@ -16,6 +16,7 @@ use macroquad::prelude::*;
 
 mod app;
 mod assets;
+mod audio;
 mod config;
 mod game;
 mod hud;

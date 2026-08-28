@@ -337,6 +337,14 @@ impl Beast {
     pub fn dir(&self) -> Direction {
         Direction::from_vec2(self.facing)
     }
+
+    /// Whether a dirt-only (already-dug) A\* path exists from the beast's cell to
+    /// the player's cell on the current map. Used to choose the "chase" music
+    /// variant: the beast has a clear route to the player (it is really chasing,
+    /// not digging/blocked). Passability is strictly `Tile::Dirt`.
+    pub fn has_clear_path(&self, map: &Map, player: (i32, i32)) -> bool {
+        pathfinding::has_path(self.cell(), player, |x, y| map.tile(x, y) == Tile::Dirt)
+    }
 }
 
 /// A transient "what to do next" summary extracted from the state each frame, so
@@ -794,6 +802,25 @@ mod tests {
         // Not digging -> None.
         b.state = BeastState::Idle;
         assert!(b.dig_frame().is_none());
+    }
+
+    #[test]
+    fn has_clear_path_detects_dug_tunnel() {
+        let mut map = open_map();
+        let b = beast_at((1, 2));
+        // A straight dirt row between beast and player -> a clear path.
+        assert!(b.has_clear_path(&map, (3, 2)));
+
+        // Seal the row with unbreakable rock -> no dirt-only path.
+        for y in 1..4 {
+            map.set_tile(2, y, Tile::Unbreakable);
+        }
+        assert!(!b.has_clear_path(&map, (3, 2)));
+
+        // A mineable door does NOT count as a clear path: chase stays off until
+        // the beast actually digs the rock open (chase is dirt-only).
+        map.set_tile(2, 2, Tile::Mineable);
+        assert!(!b.has_clear_path(&map, (3, 2)), "dirt-only means no rock on the route");
     }
 
     #[test]

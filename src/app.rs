@@ -24,6 +24,7 @@ use macroquad::prelude::*;
 
 use crate::assets::ids::{BeastAnim, Direction, IconId, PickupId, PlayerAnim};
 use crate::assets::Assets;
+use crate::audio::{Audio, Music, Sfx};
 use crate::config::game::GameConfig;
 use crate::config::map::MapConfig;
 use crate::game::camera::Camera;
@@ -43,6 +44,14 @@ const DEFAULT_ZOOM: f32 = 1.0;
 
 /// Clear color (dark blue-grey) behind the map.
 const BG_COLOR: Color = Color::new(24.0 / 255.0, 24.0 / 255.0, 34.0 / 255.0, 1.0);
+
+/// A beast closer than this (world px) is "near" the player → triggers a growl.
+const GROWL_RADIUS: f32 = 6.0 * TILE_SIZE;
+/// Minimum seconds between beast-growl triggers (edge-gated so nearby beasts
+/// don't spam it).
+const GROWL_COOLDOWN: f32 = 2.0;
+/// Seconds between footstep ticks while the player walks.
+const FOOTSTEP_INTERVAL: f32 = 0.25;
 
 /// The shop's purchasable items, in display order.
 const SHOP_ITEMS: [ShopItem; 5] = [
@@ -93,11 +102,18 @@ pub struct App {
     state: GameState,
     menu: Menu,
     settings: Settings,
+    audio: Audio,
     /// The last run loaded/saved to disk (drives the "Continue" button).
     saved_run: Option<RunSnapshot>,
     shop_index: usize,
     last_level_score: u64,
     last_level_gold: u32,
+    /// Accumulates toward the next footstep tick.
+    footstep_timer: f32,
+    /// Whether a beast was "near" the player last frame (growl is edge-triggered).
+    growl_was_near: bool,
+    /// Seconds until the next growl is allowed.
+    growl_cooldown: f32,
 }
 
 impl App {
@@ -105,6 +121,7 @@ impl App {
         let game_config = load_game_config().await;
         let map_configs = load_map_configs(&game_config.map_order.files).await;
         let assets = Assets::load().await;
+        let audio = Audio::load().await;
 
         // Load a save, if any, into settings + a resumed run; otherwise default.
         let (settings, saved_run, run) = match save::load() {
@@ -136,11 +153,19 @@ impl App {
             state: GameState::MainMenu,
             menu: Menu::Main(menu::MainMenu::new(saved_run.is_some())),
             settings,
+            audio,
             saved_run,
             shop_index: 0,
             last_level_score: 0,
             last_level_gold: 0,
+            footstep_timer: 0.0,
+            growl_was_near: false,
+            growl_cooldown: 0.0,
         };
+        // Apply the persisted volume settings to the freshly loaded audio.
+        let (mv, sv) = (app.settings.music_volume, app.settings.sfx_volume);
+        app.audio.set_music_volume(mv);
+        app.audio.set_sfx_volume(sv);
         #[cfg(not(target_arch = "wasm32"))]
         app.apply_debug_screen();
         app
@@ -157,6 +182,7 @@ impl App {
             GameState::Shop => self.update_shop(),
             GameState::GameOver | GameState::Victory => self.update_result(),
         }
+        self.update_audio(dt);
     }
 
     // ---- Menu layer ------------------------------------------------------
@@ -164,6 +190,9 @@ impl App {
     /// Collect menu input and run it through the active screen.
     fn update_menu(&mut self, _dt: f32) {
         let action = self.menu.update(&menu_input());
+        if action != MenuAction::None {
+            self.audio.play(Sfx::UiClick);
+        }
         self.apply_action(action);
     }
 
@@ -209,18 +238,22 @@ impl App {
             }
             MenuAction::VolumeUpMusic => {
                 self.settings.music_volume = settings_mod::volume_step(self.settings.music_volume, 0.1);
+                self.audio.set_music_volume(self.settings.music_volume);
                 self.maybe_persist_settings();
             }
             MenuAction::VolumeDownMusic => {
                 self.settings.music_volume = settings_mod::volume_step(self.settings.music_volume, -0.1);
+                self.audio.set_music_volume(self.settings.music_volume);
                 self.maybe_persist_settings();
             }
             MenuAction::VolumeUpSfx => {
                 self.settings.sfx_volume = settings_mod::volume_step(self.settings.sfx_volume, 0.1);
+                self.audio.set_sfx_volume(self.settings.sfx_volume);
                 self.maybe_persist_settings();
             }
             MenuAction::VolumeDownSfx => {
                 self.settings.sfx_volume = settings_mod::volume_step(self.settings.sfx_volume, -0.1);
+                self.audio.set_sfx_volume(self.settings.sfx_volume);
                 self.maybe_persist_settings();
             }
             MenuAction::Resume => self.state = GameState::Playing,
@@ -289,15 +322,31 @@ impl App {
         }
         let input = input::collect();
         let event = self.run.update(input, dt);
+
+        // One-shot sound effects the simulation reported this frame (rock breaks,
+        // gold pickups, consumable activations).
+        for s in self.run.drain_sounds() {
+            self.audio.play(s);
+        }
+
         match event {
-            RunEvent::Playing | RunEvent::Caught => {}
+            RunEvent::Playing => {}
+            RunEvent::Caught => self.audio.play(Sfx::Caught),
             RunEvent::LevelCompleted { score } => {
                 self.last_level_score = score;
                 self.last_level_gold = self.run.level.gold_collected;
+                self.audio.play(Sfx::LevelComplete);
                 self.state = GameState::LevelComplete;
             }
-            RunEvent::GameOver => self.state = GameState::GameOver,
-            RunEvent::Victory => self.state = GameState::Victory,
+            RunEvent::GameOver => {
+                self.audio.play(Sfx::GameOver);
+                self.state = GameState::GameOver;
+            }
+            RunEvent::Victory => {
+                // No dedicated victory sting in the pack; reuse the fanfare.
+                self.audio.play(Sfx::LevelComplete);
+                self.state = GameState::Victory;
+            }
         }
         self.follow_camera();
     }
@@ -315,20 +364,28 @@ impl App {
         let n = SHOP_ITEMS.len() + 1;
         if is_key_pressed(KeyCode::Up) || is_key_pressed(KeyCode::W) {
             self.shop_index = (self.shop_index + n - 1) % n;
+            self.audio.play(Sfx::UiClick);
         }
         if is_key_pressed(KeyCode::Down) || is_key_pressed(KeyCode::S) {
             self.shop_index = (self.shop_index + 1) % n;
+            self.audio.play(Sfx::UiClick);
         }
         if is_key_pressed(KeyCode::Enter) || is_key_pressed(KeyCode::Space) {
             if self.shop_index == SHOP_CONTINUE {
+                self.audio.play(Sfx::UiClick);
                 self.advance_from_shop();
             } else {
                 let item = SHOP_ITEMS[self.shop_index];
-                let _ = self.run.buy(item);
+                if self.run.buy(item).is_ok() {
+                    self.audio.play(Sfx::Purchase);
+                } else {
+                    self.audio.play(Sfx::UiClick);
+                }
             }
         }
         // Esc is always a shortcut to leave the shop.
         if is_key_pressed(KeyCode::Escape) {
+            self.audio.play(Sfx::UiClick);
             self.advance_from_shop();
         }
     }
@@ -356,6 +413,96 @@ impl App {
         let map_h = self.run.level.map.height as f32 * TILE_SIZE;
         self.camera
             .follow(self.run.level.player.pos, map_w, map_h, screen_width(), screen_height());
+    }
+
+    // ---- Audio -----------------------------------------------------------
+
+    /// Drive music + continuous loops every frame. Music follows the state (and
+    /// chase proximity while playing); the dig/beast-dig loops only run while
+    /// actually playing (they'd otherwise keep sounding after a pause/exit).
+    fn update_audio(&mut self, dt: f32) {
+        let m = self.desired_music();
+        self.audio.play_music(m);
+
+        if self.state == GameState::Playing {
+            // Dig loop while the player mines — but NOT during a Super Pick
+            // instant mine (the break is instantaneous; only RockBreak fires).
+            let mining = self.run.level.player.mining.is_some() && !self.run.level.player.super_pick;
+            if mining {
+                self.audio.start_loop(Sfx::Dig);
+            } else {
+                self.audio.stop_loop(Sfx::Dig);
+            }
+
+            let beast_digging = self.run.level.beasts.iter().any(|b| b.dig_frame().is_some());
+            if beast_digging {
+                self.audio.start_loop(Sfx::BeastDig);
+            } else {
+                self.audio.stop_loop(Sfx::BeastDig);
+            }
+
+            self.update_footstep(dt);
+            self.update_growl(dt);
+        } else {
+            self.audio.stop_loop(Sfx::Dig);
+            self.audio.stop_loop(Sfx::BeastDig);
+            self.footstep_timer = 0.0;
+        }
+    }
+
+    /// The music track for the current state.
+    fn desired_music(&self) -> Music {
+        match self.state {
+            GameState::MainMenu | GameState::LevelSelect | GameState::Settings | GameState::Paused
+            | GameState::LevelComplete | GameState::Shop | GameState::GameOver | GameState::Victory => {
+                Music::Menu
+            }
+            GameState::Playing => {
+                if self.beast_has_clear_path() {
+                    Music::Chase
+                } else {
+                    Music::Level
+                }
+            }
+        }
+    }
+
+    /// Whether any beast has a clear dirt-only path to the player (chase music).
+    fn beast_has_clear_path(&self) -> bool {
+        let player_cell = grid_cell(self.run.level.player.pos);
+        self.run
+            .level
+            .beasts
+            .iter()
+            .any(|b| b.has_clear_path(&self.run.level.map, player_cell))
+    }
+
+    /// Tick a periodic footstep while the player walks.
+    fn update_footstep(&mut self, dt: f32) {
+        self.footstep_timer -= dt;
+        let walking = self.run.level.player.is_walking();
+        if walking && self.footstep_timer <= 0.0 {
+            self.audio.play(Sfx::Footstep);
+            self.footstep_timer = FOOTSTEP_INTERVAL;
+        } else if !walking {
+            self.footstep_timer = 0.0;
+        }
+    }
+
+    /// Edge-triggered beast growl when a beast comes near (cooldown-gated).
+    fn update_growl(&mut self, dt: f32) {
+        self.growl_cooldown -= dt;
+        let near = self
+            .run
+            .level
+            .beasts
+            .iter()
+            .any(|b| (b.pos - self.run.level.player.pos).length() < GROWL_RADIUS);
+        if near && !self.growl_was_near && self.growl_cooldown <= 0.0 {
+            self.audio.play(Sfx::BeastGrowl);
+            self.growl_cooldown = GROWL_COOLDOWN;
+        }
+        self.growl_was_near = near;
     }
 
     // ---- Rendering -------------------------------------------------------
@@ -827,6 +974,11 @@ fn menu_input() -> MenuInput {
         enter: is_key_pressed(KeyCode::Enter) || is_key_pressed(KeyCode::Space),
         escape: is_key_pressed(KeyCode::Escape),
     }
+}
+
+/// The grid tile `(tx, ty)` containing a world-pixel position.
+fn grid_cell(pos: Vec2) -> (i32, i32) {
+    ((pos.x / TILE_SIZE).floor() as i32, (pos.y / TILE_SIZE).floor() as i32)
 }
 
 /// Exit the process (desktop) or request the window to quit (wasm best-effort).

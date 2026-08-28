@@ -13,6 +13,7 @@ use super::movement;
 use super::pickup::{Pickup, PickupKind};
 use super::player::Player;
 use super::TILE_SIZE;
+use crate::audio::Sfx;
 use crate::config::map::MapConfig;
 
 /// The outcome of one level-simulation step.
@@ -61,6 +62,9 @@ pub struct Level {
     /// Set once the level reports `Completed`. Guards against a caller
     /// re-running `update` and re-banking gold/score (the level is over).
     completed: bool,
+    /// One-shot sound effects reported this frame (cleared each `update`). The
+    /// caller (`Run`) drains them to the audio layer.
+    sound_events: Vec<Sfx>,
 }
 
 impl Level {
@@ -91,6 +95,7 @@ impl Level {
             elapsed: 0.0,
             active_effect: None,
             completed: false,
+            sound_events: Vec::new(),
         })
     }
 
@@ -122,6 +127,7 @@ impl Level {
             return LevelEvent::None;
         }
         self.elapsed += dt;
+        self.sound_events.clear();
         self.tick_effect(dt);
 
         let super_pick = self.active_effect
@@ -185,6 +191,8 @@ impl Level {
         if cell.0 < 0 || cell.1 < 0 {
             return;
         }
+        // Every rock that becomes dirt breaks (player or beast mined it).
+        self.sound_events.push(Sfx::RockBreak);
         let (x, y) = (cell.0 as usize, cell.1 as usize);
         if self.map.take_gold(x, y) {
             self.pickups.push(Pickup::gold(tile_center(cell.0 as f32, cell.1 as f32)));
@@ -200,6 +208,7 @@ impl Level {
             if movement::hits(player_pos, p.pos) {
                 if p.kind == PickupKind::Gold {
                     collected += 1;
+                    self.sound_events.push(Sfx::GoldPickup);
                 }
             } else {
                 kept.push(p);
@@ -207,6 +216,11 @@ impl Level {
         }
         self.gold_collected += collected;
         self.pickups = kept;
+    }
+
+    /// Take the one-shot sound effects reported since the last call.
+    pub fn drain_sounds(&mut self) -> Vec<Sfx> {
+        std::mem::take(&mut self.sound_events)
     }
 
     /// Regenerate the map with `seed` and re-spawn the player + beasts. The
@@ -226,6 +240,7 @@ impl Level {
         self.pickups.clear();
         self.elapsed = 0.0;
         self.active_effect = None;
+        self.sound_events.clear();
         self.completed = false;
     }
 }
@@ -272,6 +287,7 @@ fn player_on_exit(player_pos: Vec2, exit: (usize, usize)) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::game::map::Tile;
     use crate::config::game::GameConfig;
     use crate::config::map::MapConfig;
 
@@ -566,5 +582,84 @@ mod tests {
         }
         assert_eq!(lv.map.tile(2, 3), crate::game::map::Tile::Dirt, "super pick dug the unmineable rock");
         assert_eq!(lv.pickups.len(), 1, "gold dropped from the dug unmineable rock");
+    }
+
+    #[test]
+    fn breaking_a_rock_emits_rock_break_sound() {
+        let mut lv = level(12345);
+        lv.map.set_tile(2, 2, Tile::Dirt);
+        lv.map.set_tile(2, 3, Tile::Mineable);
+        lv.player.pos = tile_center(2.0, 2.0);
+        lv.player.facing = Vec2::new(0.0, 1.0);
+        // Super Pick: the rock breaks the first frame the player (walking down)
+        // is flush against it. Take a few frames to reach the rock.
+        lv.start_effect(ConsumableKind::SuperPick, 3.0);
+
+        let mut dug = false;
+        for _ in 0..30 {
+            lv.update(Vec2::new(0.0, 1.0), 1.0 / 60.0);
+            if lv.map.tile(2, 3) == Tile::Dirt {
+                dug = true;
+                break;
+            }
+        }
+        assert!(dug, "the rock was mined");
+
+        let sounds = lv.drain_sounds();
+        assert!(sounds.contains(&Sfx::RockBreak), "a break must report RockBreak, got {sounds:?}");
+        // A single break reports it exactly once.
+        assert_eq!(sounds.iter().filter(|s| **s == Sfx::RockBreak).count(), 1);
+    }
+
+    #[test]
+    fn collecting_gold_emits_gold_pickup_sound() {
+        let mut lv = level(12345);
+        lv.map.set_tile(2, 2, Tile::Dirt);
+        lv.map.set_tile(2, 3, Tile::Mineable);
+        lv.map.gold.insert((2, 3));
+        lv.player.pos = tile_center(2.0, 2.0);
+        lv.player.facing = Vec2::new(0.0, 1.0);
+        lv.start_effect(ConsumableKind::SuperPick, 3.0);
+
+        // Break the gold rock so a pickup drops, then move the player onto it.
+        for _ in 0..10 {
+            lv.update(Vec2::new(0.0, 1.0), 1.0 / 60.0);
+            if !lv.pickups.is_empty() {
+                break;
+            }
+        }
+        assert_eq!(lv.pickups.len(), 1, "a gold pickup drops");
+        lv.player.pos = lv.pickups[0].pos;
+        // Drop the rock-break sound from the break frame; only collect this frame.
+        lv.drain_sounds();
+
+        lv.update(Vec2::ZERO, 1.0 / 60.0);
+
+        let sounds = lv.drain_sounds();
+        assert!(sounds.contains(&Sfx::GoldPickup), "collecting gold must report GoldPickup, got {sounds:?}");
+    }
+
+    #[test]
+    fn sound_queue_clears_each_update() {
+        let mut lv = level(12345);
+        lv.map.set_tile(2, 2, Tile::Dirt);
+        lv.map.set_tile(2, 3, Tile::Mineable);
+        lv.player.pos = tile_center(2.0, 2.0);
+        lv.player.facing = Vec2::new(0.0, 1.0);
+        lv.start_effect(ConsumableKind::SuperPick, 3.0);
+        // Break the rock, then confirm the break lands in the queue…
+        let mut dug = false;
+        for _ in 0..30 {
+            lv.update(Vec2::new(0.0, 1.0), 1.0 / 60.0);
+            if lv.map.tile(2, 3) == Tile::Dirt {
+                dug = true;
+                break;
+            }
+        }
+        assert!(dug);
+        assert!(!lv.drain_sounds().is_empty(), "a break happened this frame");
+        // …and that the next idle frame reports nothing (the queue is per-frame).
+        lv.update(Vec2::ZERO, 1.0 / 60.0);
+        assert!(lv.drain_sounds().is_empty(), "a fresh frame reports no events");
     }
 }

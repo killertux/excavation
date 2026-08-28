@@ -153,6 +153,12 @@ impl Player {
         self.last_excavated.take()
     }
 
+    /// Whether the player is currently walking (a walk animation is active),
+    /// i.e. it moved this frame. Used to tick the footstep sound.
+    pub fn is_walking(&self) -> bool {
+        matches!(self.motion, PlayerMotion::Walk(_))
+    }
+
     /// Advance mining of `target` (or begin it), ignoring movement. Under
     /// [`Player::super_pick`] the mine completes instantly. On completion the
     /// cell becomes `Dirt` and is recorded in `last_excavated`.
