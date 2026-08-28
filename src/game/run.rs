@@ -215,6 +215,10 @@ impl Run {
         if self.lives == 0 {
             RunEvent::GameOver
         } else {
+            // Preserve this frame's level sounds (e.g. a rock the player broke
+            // the same frame they were caught) before the restart clears the
+            // freshly-regenerated level's queue.
+            self.sound_events.extend(self.level.drain_sounds());
             self.level.restart(generation::fresh_random_seed());
             RunEvent::Caught
         }
@@ -479,6 +483,39 @@ mod tests {
         let sounds = r.drain_sounds();
         assert!(!sounds.contains(&Sfx::SuperPick), "no owned pick -> no super-pick sound");
         assert!(!sounds.contains(&Sfx::StickySmell), "no owned smell -> no sticky sound");
+    }
+
+    #[test]
+    fn caught_frame_sounds_survive_the_restart() {
+        let mut r = run(12345);
+        // A rock directly below the player, and the player flush against it so a
+        // Super Pick breaks it on the exact frame a beast (teleported onto the
+        // player) catches them. The rock-break must not be wiped by the restart.
+        let t = crate::game::TILE_SIZE;
+        r.level.map.set_tile(2, 2, crate::game::map::Tile::Dirt);
+        r.level.map.set_tile(2, 3, crate::game::map::Tile::Mineable);
+        r.level.player.pos = macroquad::prelude::Vec2::new(
+            2.0 * t + t / 2.0,
+            3.0 * t - crate::game::movement::HITBOX_HALF,
+        );
+        r.level.player.facing = macroquad::prelude::Vec2::new(0.0, 1.0);
+        r.level.start_effect(ConsumableKind::SuperPick, 3.0);
+        r.level.beasts[0].pos = r.level.player.pos;
+
+        let input = Input {
+            move_: macroquad::prelude::Vec2::new(0.0, 1.0),
+            use_super_pick: false,
+            use_sticky_smell: false,
+        };
+        let ev = r.update(input, 1.0 / 60.0);
+        assert_eq!(ev, RunEvent::Caught, "caught on the same frame as the break");
+        assert_eq!(r.lives, 2, "a fresh run starts with 3 lives; one catch spends one");
+
+        let sounds = r.drain_sounds();
+        assert!(
+            sounds.contains(&Sfx::RockBreak),
+            "rock-break emitted on the catch frame survives the restart, got {sounds:?}"
+        );
     }
 
     #[test]

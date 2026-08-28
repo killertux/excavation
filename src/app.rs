@@ -189,8 +189,14 @@ impl App {
 
     /// Collect menu input and run it through the active screen.
     fn update_menu(&mut self, _dt: f32) {
-        let action = self.menu.update(&menu_input());
-        if action != MenuAction::None {
+        let input = menu_input();
+        let before = menu_selection(&self.menu);
+        let action = self.menu.update(&input);
+        let after = menu_selection(&self.menu);
+        // A click on any selection move or activated action (the pure menu
+        // screens return `None` on a bare Up/Down selection move, so compare the
+        // pre/post selection index to catch it).
+        if action != MenuAction::None || before != after {
             self.audio.play(Sfx::UiClick);
         }
         self.apply_action(action);
@@ -979,6 +985,16 @@ fn menu_input() -> MenuInput {
 /// The grid tile `(tx, ty)` containing a world-pixel position.
 fn grid_cell(pos: Vec2) -> (i32, i32) {
     ((pos.x / TILE_SIZE).floor() as i32, (pos.y / TILE_SIZE).floor() as i32)
+}
+
+/// The current selection index of the active menu screen, if any.
+fn menu_selection(menu: &Menu) -> Option<usize> {
+    match menu {
+        Menu::Main(m) => Some(m.selection),
+        Menu::LevelSelect(m) => Some(m.selection),
+        Menu::Settings(m) => Some(m.selection),
+        Menu::Pause(m) => Some(m.selection),
+    }
 }
 
 /// Exit the process (desktop) or request the window to quit (wasm best-effort).
