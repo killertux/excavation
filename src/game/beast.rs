@@ -242,6 +242,15 @@ impl Beast {
         cell_of(self.pos)
     }
 
+    /// The beast's current dig, as `(target_cell, progress_ratio in 0..1)`, to
+    /// drive the rock-breaking (excavation) effect. `None` when not digging.
+    pub fn dig_frame(&self) -> Option<((i32, i32), f32)> {
+        match &self.state {
+            BeastState::Dig { target, progress } => Some((*target, *progress / self.mining_time)),
+            _ => None,
+        }
+    }
+
     /// Direction for animation (dominant axis of the facing vector).
     pub fn dir(&self) -> Direction {
         Direction::from_vec2(self.facing)
@@ -544,5 +553,17 @@ mod tests {
             map.set_tile(2, y, Tile::Mineable);
         }
         assert_eq!(decide(&map, &known, (1, 2), (3, 2)), Plan::Idle);
+    }
+
+    #[test]
+    fn dig_frame_reports_target_and_progress_ratio() {
+        let mut b = Beast::new(center_of((2, 2)), 140.0, 2.0, 0.25);
+        b.state = BeastState::Dig { target: (2, 3), progress: 0.5 };
+        let (target, ratio) = b.dig_frame().expect("is digging");
+        assert_eq!(target, (2, 3));
+        assert!((ratio - 0.25).abs() < 1e-5, "0.5 / 2.0 = 0.25, got {ratio}");
+        // Not digging -> None.
+        b.state = BeastState::Idle;
+        assert!(b.dig_frame().is_none());
     }
 }

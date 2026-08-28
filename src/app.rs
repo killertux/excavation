@@ -158,25 +158,35 @@ impl App {
         );
     }
 
-    /// Draw the rock-breaking burst over the cell currently being mined.
+    /// Draw the rock-breaking burst over any cell currently being excavated —
+    /// the player's active mine, and every beast that is digging.
     ///
-    /// The animation is coupled to mining speed: `progress` runs 0 → 1 over
-    /// `mining_time`, and the burst advances one atlas frame per step so frame 0
+    /// The animation is coupled to mining speed: progress runs 0 → 1 over the
+    /// dig time, and the burst advances one atlas frame per step so frame 0
     /// plays at the start and the last frame plays right as the rock breaks.
     fn draw_mining_effect(&self) {
-        let Some(mine) = &self.level.player.mining else {
-            return;
-        };
+        if let Some(mine) = &self.level.player.mining {
+            let progress = (mine.progress / self.level.mining_time()).clamp(0.0, 1.0);
+            self.draw_burst_at(mine.target, progress);
+        }
+        for beast in &self.level.beasts {
+            if let Some((target, ratio)) = beast.dig_frame() {
+                self.draw_burst_at(target, ratio.clamp(0.0, 1.0));
+            }
+        }
+    }
+
+    /// Draw the burst sprite centred on the cell at `target`, at `progress`.
+    fn draw_burst_at(&self, target: (i32, i32), progress: f32) {
         let frames = self.assets.burst_frames();
-        let progress = (mine.progress / self.level.mining_time()).clamp(0.0, 1.0);
         let frame = burst_frame(progress, frames);
         let tex = self.assets.burst(frame);
         // The burst sprite is the same size as a cell, so it covers the tile
         // exactly (origin at the tile's top-left).
         draw_texture_ex(
             tex,
-            mine.target.0 as f32 * TILE_SIZE,
-            mine.target.1 as f32 * TILE_SIZE,
+            target.0 as f32 * TILE_SIZE,
+            target.1 as f32 * TILE_SIZE,
             WHITE,
             DrawTextureParams {
                 dest_size: Some(Vec2::new(TILE_SIZE, TILE_SIZE)),
