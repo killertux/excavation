@@ -132,6 +132,33 @@ impl BeastAnim {
     }
 }
 
+/// Pickup sprites (the M4 `PickupId` atlas row), sliced from `assets/` — the
+/// source rects live in the asset loader. These map to `Assets::pickup`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PickupId {
+    Gold,
+}
+
+/// HUD/shop icon sprites (the M4 icon row). These map to `Assets::icon`.
+///
+/// `Heart` and `BuyLives` are both hearts (the latter is the shop "buy a life"
+/// icon). The ordering must match the loader's icon rect list exactly.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum IconId {
+    /// Super Pickaxe.
+    SuperPick,
+    /// Jar of stench (Sticky Smell).
+    StickySmell,
+    /// Heart (lives HUD).
+    Heart,
+    /// Buy-a-life heart (shop).
+    BuyLives,
+    /// Boot (Walk Speed upgrade).
+    WalkSpeed,
+    /// Pickaxe (Mining Speed upgrade).
+    MiningSpeed,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -29,6 +29,9 @@ use crate::assets::ids::{BeastMotion, Direction, WALK_FRAMES};
 /// Seconds per beast walk-frame (four-frame cycle, per atlas timing).
 const WALK_FRAME_TIME: f32 = 0.1;
 
+/// Seconds between random cardinal re-rolls while wandering (Sticky Smell).
+const WANDER_RETIME: f32 = 0.5;
+
 /// The beast's current behaviour state (drives its actions each frame).
 #[derive(Debug, Clone, PartialEq)]
 pub enum BeastState {
@@ -40,6 +43,9 @@ pub enum BeastState {
     Follow { path: Vec<(i32, i32)>, next: usize },
     /// Digging the known mineable rock at `target`.
     Dig { target: (i32, i32), progress: f32 },
+    /// Randomly wandering (Sticky Smell active): pathfinding disabled, no
+    /// digging. Moves in `dir`, re-rolled on block or every ~[`WANDER_RETIME`].
+    Wander { dir: Vec2, timer: f32 },
 }
 
 /// A beast entity.
@@ -55,32 +61,52 @@ pub struct Beast {
     pub known_mineable: HashSet<(i32, i32)>,
     /// The current behaviour state.
     pub state: BeastState,
+    /// Sticky Smell active this frame: wander instead of pathfinding/digging.
+    /// Set by `Level` each frame from the active consumable effect.
+    pub sticky: bool,
     speed: f32,
     mining_time: f32,
     replan_interval: f32,
     replan_timer: f32,
     walk_timer: f32,
+    /// State for a small deterministic xorshift64* RNG (used for wander
+    /// directions; the quad-rand `RandGenerator` is neither `Clone` nor `Copy`).
+    wander_rng: u64,
+    /// The grid cell excavated this frame, if any (taken by `Level` to drop gold).
+    last_excavated: Option<(i32, i32)>,
 }
 
 impl Beast {
     pub fn new(pos: Vec2, speed: f32, mining_time: f32, replan_interval: f32) -> Self {
+        let pos_bits = (pos.x as i64) as u64 ^ ((pos.y as i64) as u64).rotate_left(32);
         Beast {
             pos,
             facing: Vec2::new(0.0, 1.0),
             motion: BeastMotion::Idle,
             known_mineable: HashSet::new(),
             state: BeastState::Idle,
+            sticky: false,
             speed,
             mining_time,
             replan_interval,
             replan_timer: 0.0,
             walk_timer: 0.0,
+            wander_rng: 0x9E37_79B9_7F4A_7C15u64 ^ pos_bits,
+            last_excavated: None,
         }
     }
 
     /// Advance the beast by `dt`. `map` is borrowed mutably because the beast
     /// digs (sets a cell to `Dirt` when it finishes mining a rock).
+    ///
+    /// When [`Beast::sticky`] is set the beast wanders randomly and never
+    /// pathfinds or digs.
     pub fn update(&mut self, player_pos: Vec2, map: &mut Map, dt: f32) {
+        if self.sticky {
+            self.wander(map, dt);
+            return;
+        }
+
         self.perceive(map);
         self.replan_timer -= dt;
 
@@ -101,6 +127,7 @@ impl Beast {
             // been mined by the player mid-dig, or was never mineable).
             if map.tile(target.0, target.1) == Tile::Mineable {
                 map.set_tile(target.0, target.1, Tile::Dirt);
+                self.last_excavated = Some(target);
             }
             self.known_mineable.remove(&target);
             self.state = BeastState::Follow {
@@ -127,12 +154,19 @@ impl Beast {
             BeastState::Follow { path, next } => Action::Follow(path.get(*next).copied()),
             BeastState::Idle => Action::Idle,
             BeastState::Dig { .. } => Action::Idle, // surfaced above; unreachable
+            BeastState::Wander { .. } => Action::Idle, // surfaced above; unreachable
         };
         match action {
             Action::Charge => self.act_charge(player_pos, map, dt),
             Action::Follow(target) => self.act_follow(target, map, dt),
             Action::Idle => self.motion = BeastMotion::Idle,
         }
+    }
+
+    /// The grid cell excavated this frame, if a rock just broke. Consumes the
+    /// value (one call per frame).
+    pub fn take_excavated(&mut self) -> Option<(i32, i32)> {
+        self.last_excavated.take()
     }
 
     /// Learn each cardinal neighbour of the current cell. Mineable neighbours
@@ -222,7 +256,12 @@ impl Beast {
             self.motion = BeastMotion::Idle;
             return false;
         }
-        let dir = to / dist;
+        self.step_dir(to / dist, map, dt)
+    }
+
+    /// Move by `speed*dt` along the unit `dir`, resolving collision. Returns
+    /// true when blocked (moved far less than intended).
+    fn step_dir(&mut self, dir: Vec2, map: &Map, dt: f32) -> bool {
         self.facing = dir;
         let intended = self.speed * dt;
         let step = dir * intended;
@@ -236,6 +275,49 @@ impl Beast {
         self.motion = BeastMotion::Walk(frame as u8);
 
         moved < intended * 0.25
+    }
+
+    /// Wander (Sticky Smell): pick a random cardinal direction, move in it, and
+    /// re-roll when blocked or every ~[`WANDER_RETIME`] seconds. Neither
+    /// pathfinding nor digging happens while wandering.
+    fn wander(&mut self, map: &mut Map, dt: f32) {
+        // Begin wandering from any other state (discarding a stale dig/plan).
+        if !matches!(self.state, BeastState::Wander { .. }) {
+            self.state = BeastState::Wander { dir: Vec2::ZERO, timer: 0.0 };
+        }
+        let (dir, timer) = match self.state {
+            BeastState::Wander { dir, timer } => (dir, timer),
+            _ => unreachable!(),
+        };
+        let new_timer = timer - dt;
+        let blocked = self.step_dir(dir, map, dt);
+        if new_timer <= 0.0 || blocked || dir == Vec2::ZERO {
+            let nd = self.random_cardinal();
+            self.state = BeastState::Wander { dir: nd, timer: WANDER_RETIME };
+        } else {
+            self.state = BeastState::Wander { dir, timer: new_timer };
+        }
+    }
+
+    /// A random cardinal direction, via the beast's inline RNG.
+    fn random_cardinal(&mut self) -> Vec2 {
+        const DIRS: [Vec2; 4] = [
+            Vec2::new(0.0, -1.0),
+            Vec2::new(0.0, 1.0),
+            Vec2::new(-1.0, 0.0),
+            Vec2::new(1.0, 0.0),
+        ];
+        DIRS[(self.next_random() % 4) as usize]
+    }
+
+    /// Next value of the beast's xorshift64* PRNG state.
+    fn next_random(&mut self) -> u64 {
+        let mut x = self.wander_rng;
+        x ^= x << 13;
+        x ^= x >> 7;
+        x ^= x << 17;
+        self.wander_rng = x;
+        x
     }
 
     fn cell(&self) -> (i32, i32) {
@@ -385,14 +467,11 @@ mod tests {
     use super::*;
 
     fn open_map() -> Map {
-        let mut m = Map { width: 5, height: 5, tiles: vec![Tile::Dirt; 25], start: (0, 2), exit: (4, 2) };
-        for y in 0..5 {
-            m.tiles[y * 5 + 0] = Tile::Unbreakable;
-            m.tiles[y * 5 + 4] = Tile::Unbreakable;
-        }
-        for x in 0..5 {
-            m.tiles[0 * 5 + x] = Tile::Unbreakable;
-            m.tiles[4 * 5 + x] = Tile::Unbreakable;
+        let mut m = Map::new(5, 5, (0, 2), (4, 2));
+        for y in 1..4 {
+            for x in 1..4 {
+                m.tiles[y * 5 + x] = Tile::Dirt;
+            }
         }
         m
     }
@@ -608,7 +687,14 @@ mod tests {
         for x in 1..=5 {
             tiles[cs(x, 4)] = Tile::Dirt;
         }
-        let mut map = Map { width: w, height: h, tiles, start: (1, 1), exit: (5, 4) };
+        let mut map = Map {
+            width: w,
+            height: h,
+            tiles,
+            start: (1, 1),
+            exit: (5, 4),
+            gold: HashSet::new(),
+        };
         let mut b = Beast::new(center_of((1, 1)), 140.0, 1.6, 0.25);
         let player = center_of((5, 4));
 
@@ -677,7 +763,14 @@ mod tests {
         for (x, y) in [(2, 3), (3, 3), (4, 3)] {
             tiles[cs(x, y)] = Tile::Mineable;
         }
-        let map = Map { width: w, height: h, tiles, start: (1, 3), exit: (5, 3) };
+        let map = Map {
+            width: w,
+            height: h,
+            tiles,
+            start: (1, 3),
+            exit: (5, 3),
+            gold: HashSet::new(),
+        };
         let known: HashSet<_> = [(2, 3), (3, 3), (4, 3)].into_iter().collect();
         match decide(&map, &known, (1, 3), (5, 3)) {
             Plan::Path(p) => {
@@ -701,5 +794,57 @@ mod tests {
         // Not digging -> None.
         b.state = BeastState::Idle;
         assert!(b.dig_frame().is_none());
+    }
+
+    #[test]
+    fn sticky_beast_wanders_and_never_digs_or_pathfinds() {
+        let mut map = open_map();
+        map.set_tile(2, 3, Tile::Mineable); // a nearby diggable rock
+        let mut b = Beast::new(center_of((2, 2)), 140.0, 1.0, 0.25);
+        b.sticky = true;
+        for _ in 0..400 {
+            b.update(center_of((2, 0)), &mut map, 1.0 / 60.0);
+            assert!(matches!(b.state, BeastState::Wander { .. }), "sticky => always wandering");
+            assert!(b.dig_frame().is_none(), "never digs while sticky");
+        }
+        assert_eq!(map.tile(2, 3), Tile::Mineable, "the rock was never dug by the wanderer");
+    }
+
+    #[test]
+    fn sticky_beast_is_still_blocked_by_solid_rock() {
+        let mut map = open_map();
+        for y in 1..4 {
+            map.set_tile(2, y, Tile::Unbreakable);
+        }
+        let mut b = Beast::new(center_of((1, 2)), 140.0, 1.6, 0.25);
+        b.sticky = true;
+        for _ in 0..300 {
+            b.update(center_of((4, 2)), &mut map, 1.0 / 60.0);
+            assert!(b.pos.x < 2.0 * TILE_SIZE, "wandering beast cannot pass the wall");
+        }
+    }
+
+    #[test]
+    fn sticky_beast_resumes_pathfinding_when_it_wears_off() {
+        let mut map = open_map();
+        let mut b = Beast::new(center_of((1, 2)), 140.0, 1.6, 0.25);
+        b.sticky = true;
+        let player = center_of((3, 2));
+        for _ in 0..10 {
+            b.update(player, &mut map, 1.0 / 60.0);
+        }
+        assert!(matches!(b.state, BeastState::Wander { .. }));
+        b.sticky = false;
+        // Once sticky wears off the beast pathfinds toward the (reachable) player
+        // again, so it must end up closer than when it was wandering.
+        let start_dist = (b.pos - player).length();
+        for _ in 0..120 {
+            b.update(player, &mut map, 1.0 / 60.0);
+        }
+        let end_dist = (b.pos - player).length();
+        assert!(
+            end_dist < start_dist,
+            "after sticky ends the beast moves toward the player (dist {end_dist} vs {start_dist})"
+        );
     }
 }

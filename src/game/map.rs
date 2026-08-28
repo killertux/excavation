@@ -8,6 +8,8 @@
 //!   rock family) — the difference is purely gameplay (whether it can be dug).
 //! - `Dirt`: the excavated walkable path, drawn as a flat dirt fill.
 
+use std::collections::HashSet;
+
 /// One cell of the map grid. Each cell is a 16×16 px tile.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tile {
@@ -27,11 +29,6 @@ impl Tile {
     pub fn solid(self) -> bool {
         matches!(self, Tile::Mineable | Tile::Unmineable | Tile::Unbreakable)
     }
-
-    /// Whether this tile can be mined (dug) by the player.
-    pub fn mineable(self) -> bool {
-        matches!(self, Tile::Mineable)
-    }
 }
 
 /// A rectangular grid of tiles, stored row-major (`index = y * width + x`).
@@ -44,9 +41,27 @@ pub struct Map {
     pub start: (usize, usize),
     /// Grid coords of the exit gap (a `Dirt` hole in the border ring).
     pub exit: (usize, usize),
+    /// Grid coords of cells whose mineable rock hides gold (M4). A cell is
+    /// present iff its rock is currently concealing a gold pickup.
+    pub gold: HashSet<(usize, usize)>,
 }
 
 impl Map {
+    /// A map whose interior/border is entirely `Unbreakable`, with empty gold
+    /// and the given start/exit gaps. Callers replace `tiles` as needed. The
+    /// border ring is populated with `Unbreakable`, so a freshly-constructed map
+    /// is fully solid.
+    pub fn new(width: usize, height: usize, start: (usize, usize), exit: (usize, usize)) -> Map {
+        Map {
+            width,
+            height,
+            tiles: vec![Tile::Unbreakable; width * height],
+            start,
+            exit,
+            gold: HashSet::new(),
+        }
+    }
+
     /// Returns true if `(x, y)` is within the grid.
     pub fn in_bounds(&self, x: i32, y: i32) -> bool {
         x >= 0 && y >= 0 && (x as usize) < self.width && (y as usize) < self.height
@@ -86,6 +101,17 @@ impl Map {
     pub fn exit_pos(&self) -> (usize, usize) {
         self.exit
     }
+
+    /// Whether the cell at `(x, y)` currently hides gold.
+    pub fn has_gold(&self, x: usize, y: usize) -> bool {
+        self.gold.contains(&(x, y))
+    }
+
+    /// Remove gold from `(x, y)`, returning whether it was present. Gold is
+    /// consumed exactly once: the second call returns `false`.
+    pub fn take_gold(&mut self, x: usize, y: usize) -> bool {
+        self.gold.remove(&(x, y))
+    }
 }
 
 #[cfg(test)]
@@ -93,13 +119,7 @@ mod tests {
     use super::*;
 
     fn test_map() -> Map {
-        Map {
-            width: 5,
-            height: 5,
-            tiles: vec![Tile::Unbreakable; 25],
-            start: (0, 2),
-            exit: (4, 2),
-        }
+        Map::new(5, 5, (0, 2), (4, 2))
     }
 
     #[test]
@@ -108,14 +128,6 @@ mod tests {
         assert!(Tile::Unmineable.solid());
         assert!(Tile::Unbreakable.solid());
         assert!(!Tile::Dirt.solid());
-    }
-
-    #[test]
-    fn mineable_is_only_true_for_mineable() {
-        assert!(Tile::Mineable.mineable());
-        assert!(!Tile::Unmineable.mineable());
-        assert!(!Tile::Unbreakable.mineable());
-        assert!(!Tile::Dirt.mineable());
     }
 
     #[test]
@@ -152,5 +164,16 @@ mod tests {
         let m = test_map();
         assert_eq!(m.start_pos(), (0, 2));
         assert_eq!(m.exit_pos(), (4, 2));
+    }
+
+    #[test]
+    fn gold_is_present_then_consumed_once() {
+        let mut m = test_map();
+        m.gold.insert((2, 2));
+        assert!(m.has_gold(2, 2));
+        assert!(!m.has_gold(1, 1));
+        assert!(m.take_gold(2, 2), "gold present -> consumed");
+        assert!(!m.has_gold(2, 2), "gold gone after take");
+        assert!(!m.take_gold(2, 2), "second take returns false (no double collect)");
     }
 }

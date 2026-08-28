@@ -9,7 +9,7 @@
 
 use macroquad::prelude::Vec2;
 
-use super::map::Map;
+use super::map::{Map, Tile};
 use super::TILE_SIZE;
 
 /// An in-progress mine of a single target cell.
@@ -29,14 +29,28 @@ pub struct Mining {
 /// the candidate is `Mineable` **and** the player's hitbox is flush against it on
 /// that axis (the leading edge has reached the shared boundary) — i.e. the player
 /// is genuinely walking into the rock and being blocked by it.
+///
+/// This is the non-Super-Pick form: only `Mineable` cells are diggable.
 pub fn pushed_target(pos: Vec2, facing: Vec2, map: &Map, half: f32) -> Option<(i32, i32)> {
+    pushed_target_ex(pos, facing, map, half, false)
+}
+
+/// Like [`pushed_target`], but when `allow_unmineable` is true `Unmineable`
+/// cells are also diggable (used by Super Pick). `Unbreakable` is never diggable.
+pub fn pushed_target_ex(
+    pos: Vec2,
+    facing: Vec2,
+    map: &Map,
+    half: f32,
+    allow_unmineable: bool,
+) -> Option<(i32, i32)> {
     let cell = ((pos.x / TILE_SIZE).floor() as i32, (pos.y / TILE_SIZE).floor() as i32);
     let (dx, dy) = dominant_axis(facing);
     if (dx, dy) == (0, 0) {
         return None;
     }
     let target = (cell.0 + dx, cell.1 + dy);
-    if !map.tile(target.0, target.1).mineable() {
+    if !is_diggable(map.tile(target.0, target.1), allow_unmineable) {
         return None;
     }
 
@@ -58,6 +72,16 @@ pub fn pushed_target(pos: Vec2, facing: Vec2, map: &Map, half: f32) -> Option<(i
         Some(target)
     } else {
         None
+    }
+}
+
+/// Whether a tile can be dug: `Mineable` always, `Unmineable` only under Super
+/// Pick, `Unbreakable`/`Dirt` never.
+fn is_diggable(t: Tile, allow_unmineable: bool) -> bool {
+    match t {
+        Tile::Mineable => true,
+        Tile::Unmineable => allow_unmineable,
+        _ => false,
     }
 }
 
@@ -86,7 +110,7 @@ mod tests {
 
     /// 5x5 grid, border ring, interior dirt; helper to build one.
     fn open_map() -> Map {
-        let mut m = Map { width: 5, height: 5, tiles: vec![Tile::Unbreakable; 25], start: (0, 2), exit: (4, 2) };
+        let mut m = Map::new(5, 5, (0, 2), (4, 2));
         for y in 1..4 {
             for x in 1..4 {
                 m.tiles[y * 5 + x] = Tile::Dirt;
@@ -162,6 +186,24 @@ mod tests {
     fn zero_facing_returns_none() {
         let map = open_map();
         assert_eq!(pushed_target(center_of((2, 2)), Vec2::ZERO, &map, HALF), None);
+    }
+
+    #[test]
+    fn super_pick_targets_unmineable_but_never_unbreakable() {
+        let mut map = open_map();
+        // Flush east of (3,2).
+        let pos = flush_east_of_rock();
+        // Unmineable: only diggable under Super Pick.
+        map.set_tile(3, 2, Tile::Unmineable);
+        assert_eq!(pushed_target(pos, Vec2::new(1.0, 0.0), &map, HALF), None);
+        assert_eq!(
+            pushed_target_ex(pos, Vec2::new(1.0, 0.0), &map, HALF, true),
+            Some((3, 2)),
+            "Super Pick lets the player mine an unmineable rock"
+        );
+        // Unbreakable: never diggable, even under Super Pick.
+        map.set_tile(3, 2, Tile::Unbreakable);
+        assert_eq!(pushed_target_ex(pos, Vec2::new(1.0, 0.0), &map, HALF, true), None);
     }
 
     #[test]

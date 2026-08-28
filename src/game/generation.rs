@@ -14,6 +14,7 @@
 //! same map. A deterministic RNG instance is created locally (not the global
 //! quad-rand state) so tests that run in parallel remain reproducible.
 
+use std::collections::HashSet;
 use std::fmt;
 
 use macroquad::rand::{ChooseRandom, RandGenerator};
@@ -151,12 +152,35 @@ pub fn generate(config: &MapConfig, seed: u64) -> Result<Map, GenError> {
         tiles[idx(w, x, y)] = Tile::Unmineable;
     }
 
+    // 6. Place gold into a random subset of the still-mineable interior cells.
+    //    The number of mineable cells after the flip is (at least) the interior
+    //    count minus `unmineable_count`, so `gold_count` cannot exceed it when
+    //    the config is validated. Using the same RNG keeps gold reproducible with
+    //    the seed. A `gold_count` larger than the available mineable cells is
+    //    clamped so generation never errors (an over-large count is rejected at
+    //    config-parse time anyway).
+    let mut gold_cells: Vec<(usize, usize)> = Vec::new();
+    for y in 1..h - 1 {
+        for x in 1..w - 1 {
+            let i = idx(w, x, y);
+            if tiles[i] == Tile::Mineable {
+                gold_cells.push((x, y));
+            }
+        }
+    }
+    gold_cells.shuffle_with_state(&rng);
+    let gold: HashSet<(usize, usize)> = gold_cells
+        .into_iter()
+        .take(config.gold_count as usize)
+        .collect();
+
     let map = Map {
         width: w,
         height: h,
         tiles,
         start: (start.0 as usize, start.1 as usize),
         exit: (exit.0 as usize, exit.1 as usize),
+        gold,
     };
 
     // Guaranteed post-condition: a diggable path from start to exit always exists
@@ -335,6 +359,44 @@ mod tests {
         let mut seeded = config();
         seeded.seed = Some(987);
         assert_eq!(resolve_seed(&seeded), 987);
+    }
+
+    #[test]
+    fn places_exactly_gold_count_on_mineable_cells_only() {
+        let mut cfg = config();
+        cfg.gold_count = 12;
+        let map = generate(&cfg, 12345).expect("generates");
+        assert_eq!(map.gold.len(), cfg.gold_count as usize, "gold count matches");
+        for &(x, y) in &map.gold {
+            assert_eq!(map.tile(x as i32, y as i32), Tile::Mineable, "gold is only ever on mineable rock");
+        }
+    }
+
+    #[test]
+    fn same_seed_places_gold_identically_and_different_seeds_differ() {
+        let mut cfg = config();
+        cfg.gold_count = 12;
+        let a = generate(&cfg, 42).expect("a");
+        let b = generate(&cfg, 42).expect("b");
+        assert_eq!(a.gold, b.gold, "same seed must reproduce gold placement");
+
+        let c = generate(&cfg, 4242).expect("c");
+        assert_ne!(a.gold, c.gold, "different seeds usually differ");
+    }
+
+    #[test]
+    fn gold_never_lands_on_unmineable_or_corridor_breaking_cells() {
+        // With unmineable_count == interior left untouched, gold must not appear
+        // on any unmineable cell even when the count is large.
+        let mut cfg = config();
+        cfg.unmineable_count = 20;
+        cfg.gold_count = 60;
+        // The interior (28*18 = 504) comfortably holds 20 unmineable + 60 gold.
+        let map = generate(&cfg, 7).expect("generates");
+        for &(x, y) in &map.gold {
+            assert_eq!(map.tile(x as i32, y as i32), Tile::Mineable);
+            assert_ne!(map.tile(x as i32, y as i32), Tile::Unmineable);
+        }
     }
 
     #[test]

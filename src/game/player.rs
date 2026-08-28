@@ -34,6 +34,9 @@ pub struct Player {
     pub facing: Vec2,
     /// In-progress mine, if any.
     pub mining: Option<Mining>,
+    /// Super Pick active this frame: any rock (except unbreakable) is dug
+    /// instantly. Set by `Level` each frame from the active consumable effect.
+    pub super_pick: bool,
     walk_anim_timer: f32,
     idle_anim_timer: f32,
     /// How long the player has been continuously pushing into a mineable rock,
@@ -41,6 +44,8 @@ pub struct Player {
     /// changes or contact is lost.
     push_timer: f32,
     push_target: Option<(i32, i32)>,
+    /// The grid cell excavated this frame, if any (taken by `Level` to drop gold).
+    last_excavated: Option<(i32, i32)>,
 }
 
 impl Player {
@@ -51,10 +56,12 @@ impl Player {
             motion: PlayerMotion::Idle(0),
             facing: Vec2::new(0.0, 1.0),
             mining: None,
+            super_pick: false,
             walk_anim_timer: 0.0,
             idle_anim_timer: 0.0,
             push_timer: 0.0,
             push_target: None,
+            last_excavated: None,
         }
     }
 
@@ -69,6 +76,12 @@ impl Player {
     /// progress — rocks have no "life", so the player must mine it again from
     /// scratch. When `progress` reaches `mining_time` seconds the cell becomes
     /// `Dirt`. If nothing is being mined the player moves normally.
+    ///
+    /// While [`Player::super_pick`] is set, mining is instant and also works on
+    /// `Unmineable` rocks (still never `Unbreakable`).
+    ///
+    /// The excavated cell (if a rock broke this frame) is later read via
+    /// [`Player::take_excavated`].
     pub fn update(&mut self, intent: Vec2, map: &mut Map, mining_time: f32, dt: f32) {
         if intent.length_squared() > 0.0 {
             self.facing = intent.normalize();
@@ -83,9 +96,12 @@ impl Player {
 
         // Cancel an in-progress mine once the player stops pushing into it.
         if let Some(m) = self.mining {
-            let still_pushing =
-                mining::pushed_target(self.pos, push_dir, map, movement::HITBOX_HALF)
-                    == Some(m.target);
+            let still_pushing = if self.super_pick {
+                mining::pushed_target_ex(self.pos, push_dir, map, movement::HITBOX_HALF, true)
+                    == Some(m.target)
+            } else {
+                mining::pushed_target(self.pos, push_dir, map, movement::HITBOX_HALF) == Some(m.target)
+            };
             if !still_pushing {
                 self.mining = None;
             }
@@ -93,8 +109,17 @@ impl Player {
 
         // If still mining, keep digging the same target (movement ignored).
         if let Some(m) = &self.mining {
-            self.mine(m.target, map, mining_time, dt);
+            let target = m.target;
+            self.mine(target, map, mining_time, dt);
             return;
+        }
+
+        // Super Pick: break a rock the frame the player pushes into it.
+        if self.super_pick {
+            if let Some(t) = mining::pushed_target_ex(self.pos, push_dir, map, movement::HITBOX_HALF, true) {
+                self.mine(t, map, mining_time, dt);
+                return;
+            }
         }
 
         // Otherwise walk, then see if we're pressing into a mineable rock.
@@ -122,10 +147,20 @@ impl Player {
         }
     }
 
-    /// Advance mining of `target` (or begin it), ignoring movement.
+    /// The grid cell excavated this frame, if a rock just broke. Consumes the
+    /// value (one call per frame).
+    pub fn take_excavated(&mut self) -> Option<(i32, i32)> {
+        self.last_excavated.take()
+    }
+
+    /// Advance mining of `target` (or begin it), ignoring movement. Under
+    /// [`Player::super_pick`] the mine completes instantly. On completion the
+    /// cell becomes `Dirt` and is recorded in `last_excavated`.
     fn mine(&mut self, target: (i32, i32), map: &mut Map, mining_time: f32, dt: f32) {
         let continuing = self.mining.map(|m| m.target) == Some(target);
-        let progress = if continuing {
+        let progress = if self.super_pick {
+            mining_time
+        } else if continuing {
             self.mining.as_ref().unwrap().progress + dt
         } else {
             0.0
@@ -140,6 +175,7 @@ impl Player {
         if progress >= mining_time {
             map.set_tile(target.0, target.1, Tile::Dirt);
             self.mining = None;
+            self.last_excavated = Some(target);
         }
     }
 
@@ -176,7 +212,7 @@ mod tests {
 
     /// 5x5 grid with a solid rock at (3,2) and a dirt interior.
     fn test_map() -> Map {
-        let mut m = Map { width: 5, height: 5, tiles: vec![Tile::Unbreakable; 25], start: (0, 2), exit: (4, 2) };
+        let mut m = Map::new(5, 5, (0, 2), (4, 2));
         for y in 1..4 {
             for x in 1..4 {
                 m.tiles[y * 5 + x] = Tile::Dirt;
@@ -187,14 +223,11 @@ mod tests {
     }
 
     fn open_map() -> Map {
-        let mut map = Map { width: 5, height: 5, tiles: vec![Tile::Dirt; 25], start: (0, 2), exit: (4, 2) };
-        for y in 0..5 {
-            map.tiles[y * 5 + 0] = Tile::Unbreakable;
-            map.tiles[y * 5 + 4] = Tile::Unbreakable;
-        }
-        for x in 0..5 {
-            map.tiles[0 * 5 + x] = Tile::Unbreakable;
-            map.tiles[4 * 5 + x] = Tile::Unbreakable;
+        let mut map = Map::new(5, 5, (0, 2), (4, 2));
+        for y in 1..4 {
+            for x in 1..4 {
+                map.tiles[y * 5 + x] = Tile::Dirt;
+            }
         }
         map
     }
@@ -356,6 +389,49 @@ mod tests {
         }
         assert!(p.mining.is_none());
         assert_eq!(map.tile(3, 2), Tile::Unbreakable);
+    }
+
+    #[test]
+    fn super_pick_breaks_unmineable_instantly() {
+        let mut map = open_map();
+        map.set_tile(3, 2, Tile::Unmineable);
+        let mut p = Player::new(flush_east_of((3, 2)), TEST_SPEED);
+        p.super_pick = true;
+        // The mine completes the first frame the player pushes into the rock.
+        p.update(Vec2::new(1.0, 0.0), &mut map, 0.8, 1.0 / 60.0);
+        assert_eq!(map.tile(3, 2), Tile::Dirt, "Super Pick breaks an unmineable rock instantly");
+        assert_eq!(p.take_excavated(), Some((3, 2)), "the excavated cell is reported");
+    }
+
+    #[test]
+    fn super_pick_never_breaks_unbreakable() {
+        let mut map = open_map();
+        map.set_tile(3, 2, Tile::Unbreakable);
+        let mut p = Player::new(flush_east_of((3, 2)), TEST_SPEED);
+        p.super_pick = true;
+        for _ in 0..60 {
+            p.update(Vec2::new(1.0, 0.0), &mut map, 0.8, 1.0 / 60.0);
+        }
+        assert_eq!(map.tile(3, 2), Tile::Unbreakable, "Super Pick cannot break unbreakable rock");
+        assert!(p.take_excavated().is_none());
+    }
+
+    #[test]
+    fn update_reports_excavated_cell_only_when_it_breaks() {
+        let mut map = open_map();
+        map.set_tile(3, 2, Tile::Mineable);
+        let mut p = Player::new(flush_east_of((3, 2)), TEST_SPEED);
+        // Mine through: once the rock breaks, `take_excavated` reports the cell.
+        let mut dug = None;
+        for _ in 0..70 {
+            p.update(Vec2::new(1.0, 0.0), &mut map, 0.8, 1.0 / 60.0);
+            if let Some(c) = p.take_excavated() {
+                dug = Some(c);
+                break;
+            }
+        }
+        assert_eq!(dug, Some((3, 2)));
+        assert_eq!(map.tile(3, 2), Tile::Dirt);
     }
 
     #[test]

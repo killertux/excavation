@@ -15,7 +15,7 @@
 
 use macroquad::prelude::*;
 
-use crate::assets::ids::{BeastAnim, PlayerAnim};
+use crate::assets::ids::{BeastAnim, IconId, PickupId, PlayerAnim};
 use crate::game::terrain::TerrainTile;
 
 pub mod ids;
@@ -44,6 +44,18 @@ const BURST_Y: u32 = 363;
 const MINER_ROW_Y: [u32; 4] = [0, 33, 66, 99]; // Down, Up, Right, Left
 const DINO_ROW_Y: [u32; 4] = [132, 165, 198, 231]; // Down, Up, Right, Left
 
+/// M4 pickup/icon cells: 24×24 each, all at x=0 (the atlas `.json` — see
+/// `assets/ids.rs`). The ordering here must match the `PickupId`/`IconId`
+/// enum ordering.
+const ICON_CELL: u32 = 24;
+const GOLD_Y: u32 = 396;
+const SUPER_PICK_Y: u32 = 421;
+const STICKY_SMELL_Y: u32 = 446;
+const HEART_Y: u32 = 471;
+const BUY_LIVES_Y: u32 = 496;
+const WALK_SPEED_Y: u32 = 521;
+const MINING_SPEED_Y: u32 = 546;
+
 /// The rock terrain families (each a 16-tile Wang set, indexed by mask).
 struct RockAtlas {
     /// Wang tiles for unbreakable rock, indexed by mask (0..15).
@@ -71,6 +83,10 @@ pub struct Assets {
     player: Vec<Texture2D>,
     beast: Vec<Texture2D>,
     burst: Vec<Texture2D>,
+    /// M4 pickup sprites, indexed by [`PickupId`].
+    pickup: Vec<Texture2D>,
+    /// M4 HUD/shop icon sprites, indexed by [`IconId`].
+    icon: Vec<Texture2D>,
 }
 
 impl Assets {
@@ -99,11 +115,23 @@ impl Assets {
         let beast = load_character(&img, &DINO_ROW_Y, BEAST_ROWS, BEAST_COLS);
         let burst = load_row(&img, BURST_Y, BURST_FRAMES, 1, layout::ScaleMode::Fit);
 
+        let pickup = vec![load_cell_icon(&img, GOLD_Y, layout::ScaleMode::Stretch)];
+        let icon = vec![
+            load_cell_icon(&img, SUPER_PICK_Y, layout::ScaleMode::Stretch),
+            load_cell_icon(&img, STICKY_SMELL_Y, layout::ScaleMode::Stretch),
+            load_cell_icon(&img, HEART_Y, layout::ScaleMode::Stretch),
+            load_cell_icon(&img, BUY_LIVES_Y, layout::ScaleMode::Stretch),
+            load_cell_icon(&img, WALK_SPEED_Y, layout::ScaleMode::Stretch),
+            load_cell_icon(&img, MINING_SPEED_Y, layout::ScaleMode::Stretch),
+        ];
+
         Assets {
             terrain: RockAtlas { unbreakable, mineable, dirt },
             player,
             beast,
             burst,
+            pickup,
+            icon,
         }
     }
 
@@ -131,6 +159,27 @@ impl Assets {
     pub fn burst_frames(&self) -> usize {
         BURST_FRAMES
     }
+
+    /// A pickup sprite (e.g. gold).
+    pub fn pickup(&self, id: PickupId) -> &Texture2D {
+        &self.pickup[id as usize]
+    }
+
+    /// A HUD/shop icon sprite.
+    pub fn icon(&self, id: IconId) -> &Texture2D {
+        &self.icon[id as usize]
+    }
+}
+
+/// Slice a single 24×24 icon cell and resize it to the game's 32 px tile. The
+/// icon source cells are 24×24 (unlike the 32 px character/terrain cells) and
+/// sit in their own row of the atlas.
+fn load_cell_icon(img: &image::RgbaImage, y: u32, scale_mode: layout::ScaleMode) -> Texture2D {
+    let rect = layout::Rect::new(0, y, ICON_CELL, ICON_CELL);
+    slice_rects(img, vec![rect], scale_mode)
+        .into_iter()
+        .next()
+        .expect("icon cell should slice")
 }
 
 /// Slice `cols` cells from a single atlas row starting at `row_y`, optionally

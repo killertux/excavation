@@ -99,6 +99,14 @@ impl MapConfig {
                 self.unmineable_count
             )));
         }
+        // Gold hides in mineable cells that survive the unmineable flip, so the
+        // two counts together cannot exceed the interior.
+        if self.gold_count as usize + self.unmineable_count > interior {
+            return Err(ConfigError::Validation(format!(
+                "gold_count {} + unmineable_count {} exceeds the interior cell count {interior}",
+                self.gold_count, self.unmineable_count
+            )));
+        }
         Ok(())
     }
 
@@ -223,5 +231,23 @@ mod tests {
             exit  = { x = 5,  y = 0 }
         "#;
         assert!(MapConfig::from_toml(s).is_ok());
+    }
+
+    #[test]
+    fn rejects_gold_count_that_exceeds_remaining_mineable_cells() {
+        // Interior of a 6x6 map is 4x4 = 16 cells. 16 gold + 1 unmineable
+        // exceeds it, so the combination is rejected.
+        let s = r#"
+            width = 6
+            height = 6
+            unmineable_count = 1
+            gold_count = 16
+            start = { x = 0, y = 2 }
+            exit  = { x = 5, y = 2 }
+        "#;
+        assert!(matches!(
+            MapConfig::from_toml(s),
+            Err(ConfigError::Validation(_))
+        ));
     }
 }

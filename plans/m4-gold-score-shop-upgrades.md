@@ -29,21 +29,21 @@
 
 ## 1. Outcome (acceptance checklist)
 
-- [ ] `game.toml` gains `max_lives`, `[upgrades]`, `[lives]`, `[consumables]`,
+- [x] `game.toml` gains `max_lives`, `[upgrades]`, `[lives]`, `[consumables]`,
       `[score]`, and `[map_order]`; all load + validate.
-- [ ] `gold_count` mineable rocks hide gold; mining one drops a gold pickup; the
+- [x] `gold_count` mineable rocks hide gold; mining one drops a gold pickup; the
       player collects it by walking over it.
-- [ ] A per-level score (speed + gold) is computed and shown at level end, with a
+- [x] A per-level score (speed + gold) is computed and shown at level end, with a
       running total.
-- [ ] A shop between levels lets the player buy Walk Speed, Mining Speed, Lives,
+- [x] A shop between levels lets the player buy Walk Speed, Mining Speed, Lives,
       Super Pick, and Sticky Smell (costs/effects from TOML).
-- [ ] Walk Speed and Mining Speed upgrades change the next level's player.
-- [ ] Super Pick (3s): instant mining of any rock except unbreakable.
-- [ ] Sticky Smell (5s): beasts wander randomly instead of pathfinding.
-- [ ] One consumable effect active at a time; using one replaces the current.
-- [ ] Levels play in `map_order` sequence; lives/gold/upgrades/consumables/score
+- [x] Walk Speed and Mining Speed upgrades change the next level's player.
+- [x] Super Pick (3s): instant mining of any rock except unbreakable.
+- [x] Sticky Smell (5s): beasts wander randomly instead of pathfinding.
+- [x] One consumable effect active at a time; using one replaces the current.
+- [x] Levels play in `map_order` sequence; lives/gold/upgrades/consumables/score
       persist across levels.
-- [ ] All new unit tests pass.
+- [x] All new unit tests pass.
 
 ---
 
@@ -352,20 +352,20 @@ struct Input { move_: Vec2, use_super_pick: bool, use_sticky_smell: bool }
 
 ## 16. Task List (ordered)
 
-- [ ] 1. Extend `config/game.rs` + `game.toml` (upgrades/lives/consumables/score/map_order/max_lives) + tests.
-- [ ] 2. Slice the 7 new sprites in `assets/` (`PickupId`, `IconId`, accessors).
-- [ ] 3. Add `Map.gold` + generation gold placement + `has_gold`/`take_gold` + tests.
-- [ ] 4. Add `game/pickup.rs` + gold drop/collect; make `Player`/`Beast::update`
+- [x] 1. Extend `config/game.rs` + `game.toml` (upgrades/lives/consumables/score/map_order/max_lives) + tests.
+- [x] 2. Slice the 7 new sprites in `assets/` (`PickupId`, `IconId`, accessors).
+- [x] 3. Add `Map.gold` + generation gold placement + `has_gold`/`take_gold` + tests.
+- [x] 4. Add `game/pickup.rs` + gold drop/collect; make `Player`/`Beast::update`
       return the excavated cell.
-- [ ] 5. Add `game/score.rs` + `Level.elapsed`/`gold_collected`.
-- [ ] 6. Add `game/upgrades.rs` + `game/consumables.rs`.
-- [ ] 7. Super Pick: extend `mining.rs`/`player.rs` + tests.
-- [ ] 8. Sticky Smell: add `BeastState::Wander` + `sticky` flag + tests.
-- [ ] 9. Add `game/run.rs`; refactor `Level` (drop lives; add elapsed/gold/pickups/effect).
-- [ ] 10. Add `game/shop.rs` (pure buy logic) + tests.
-- [ ] 11. Wire `app.rs`: `Run` + `GameState::{Shop, Victory}`, score/gold overlay,
+- [x] 5. Add `game/score.rs` + `Level.elapsed`/`gold_collected`.
+- [x] 6. Add `game/upgrades.rs` + `game/consumables.rs`.
+- [x] 7. Super Pick: extend `mining.rs`/`player.rs` + tests.
+- [x] 8. Sticky Smell: add `BeastState::Wander` + `sticky` flag + tests.
+- [x] 9. Add `game/run.rs`; refactor `Level` (drop lives; add elapsed/gold/pickups/effect).
+- [x] 10. Add `game/shop.rs` (pure buy logic) + tests.
+- [x] 11. Wire `app.rs`: `Run` + `GameState::{Shop, Victory}`, score/gold overlay,
        simple shop screen, consumable keys, `map_order`.
-- [ ] 12. Full `cargo test`; desktop run + `--screenshot` (gold pickup, shop, super
+- [x] 12. Full `cargo test`; desktop run + `--screenshot` (gold pickup, shop, super
        pick, sticky smell); WASM build/boot check.
 
 ---

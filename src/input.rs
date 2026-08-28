@@ -17,6 +17,12 @@ use macroquad::prelude::*;
 pub struct Input {
     /// Movement intent (WASD/arrows), unnormalized. Zero when idle.
     pub move_: Vec2,
+    /// Edge-triggered: the Super Pick consumable was activated this frame (Key1
+    /// / Q). The run spends a consumable if one is owned.
+    pub use_super_pick: bool,
+    /// Edge-triggered: the Sticky Smell consumable was activated this frame
+    /// (Key2 / E).
+    pub use_sticky_smell: bool,
 }
 
 /// Collect the current frame's input.
@@ -36,5 +42,8 @@ pub fn collect() -> Input {
         v.x += 1.0;
     }
 
-    Input { move_: v }
+    let use_super_pick = is_key_pressed(KeyCode::Key1) || is_key_pressed(KeyCode::Q);
+    let use_sticky_smell = is_key_pressed(KeyCode::Key2) || is_key_pressed(KeyCode::E);
+
+    Input { move_: v, use_super_pick, use_sticky_smell }
 }

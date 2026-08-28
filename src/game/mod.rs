@@ -3,14 +3,20 @@
 
 pub mod beast;
 pub mod camera;
+pub mod consumables;
 pub mod generation;
 pub mod level;
 pub mod map;
 pub mod mining;
 pub mod movement;
 pub mod pathfinding;
+pub mod pickup;
 pub mod player;
+pub mod run;
+pub mod score;
+pub mod shop;
 pub mod terrain;
+pub mod upgrades;
 
 /// Logical tile size, in world pixels. Every cell is a 32×32 tile (the atlas
 /// cells are 32 px, rendered at native resolution).
