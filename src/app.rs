@@ -74,7 +74,7 @@ impl App {
 
         let input = input::collect();
         self.player
-            .update(input.move_, input.mine, &mut self.map, self.mining_time, dt);
+            .update(input.move_, &mut self.map, self.mining_time, dt);
         self.beast.update(self.player.pos, &self.map, dt);
 
         // Win when the player's cell is the exit gap.
@@ -171,25 +171,24 @@ impl App {
 
     /// Draw the rock-breaking burst over the cell currently being mined.
     ///
-    /// The burst advances through its frames with the mine progress, and fades
-    /// out as the rock nears completion.
+    /// The animation is coupled to mining speed: `progress` runs 0 → 1 over
+    /// `mining_time`, and the burst advances one atlas frame per step so frame 0
+    /// plays at the start and the last frame plays right as the rock breaks.
     fn draw_mining_effect(&self) {
         let Some(mine) = &self.player.mining else {
             return;
         };
         let frames = self.assets.burst_frames();
         let progress = (mine.progress / self.mining_time).clamp(0.0, 1.0);
-        let frame = (progress * frames as f32) as usize % frames;
+        let frame = burst_frame(progress, frames);
         let tex = self.assets.burst(frame);
-        // Slide the effect off the rock toward the player as it nears completion,
-        // and fade it out over the last 20%.
-        let push = progress * (TILE_SIZE * 0.4);
-        let alpha = 1.0 - (progress * 5.0).clamp(0.0, 1.0);
+        // The burst sprite is the same size as a cell, so it covers the tile
+        // exactly (origin at the tile's top-left).
         draw_texture_ex(
             tex,
-            mine.target.0 as f32 * TILE_SIZE - push * 0.5,
-            mine.target.1 as f32 * TILE_SIZE - push * 0.5,
-            Color::new(1.0, 1.0, 1.0, alpha),
+            mine.target.0 as f32 * TILE_SIZE,
+            mine.target.1 as f32 * TILE_SIZE,
+            WHITE,
             DrawTextureParams {
                 dest_size: Some(Vec2::new(TILE_SIZE, TILE_SIZE)),
                 ..Default::default()
@@ -293,6 +292,15 @@ fn mq_zoom(mag: f32, view_w: f32, view_h: f32, to_render_target: bool) -> Vec2 {
     Vec2::new(2.0 / world_w, zoom_y)
 }
 
+/// The burst-frame index for a mine at `progress` (0 = start, 1 = rock breaks).
+///
+/// Coupled to mining speed: the frame advances linearly with progress so frame 0
+/// plays at the start and the last frame (`frames - 1`) plays as the rock breaks.
+fn burst_frame(progress: f32, frames: usize) -> usize {
+    let p = progress.clamp(0.0, 1.0);
+    ((p * frames as f32).floor() as usize).min(frames - 1)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -330,5 +338,21 @@ mod tests {
             Vec2::new(5.0 * TILE_SIZE + 1.0, 0.0 * TILE_SIZE + 2.0),
             (5, 0)
         ));
+    }
+
+    #[test]
+    fn burst_frame_advances_with_progress_and_holds_last() {
+        let frames = 6;
+        // At progress 0 the first frame plays.
+        assert_eq!(burst_frame(0.0, frames), 0);
+        // Advancing hits each frame in order, and the last frame is held until
+        // the rock breaks (never wraps past `frames - 1`).
+        assert_eq!(burst_frame(0.2, frames), 1);
+        assert_eq!(burst_frame(0.5, frames), 3);
+        assert_eq!(burst_frame(0.9, frames), 5);
+        assert_eq!(burst_frame(1.0, frames), 5);
+        // Out-of-range progress clamps.
+        assert_eq!(burst_frame(-0.1, frames), 0);
+        assert_eq!(burst_frame(1.5, frames), 5);
     }
 }

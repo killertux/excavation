@@ -17,6 +17,9 @@ const WALK_FRAME_TIME: f32 = 0.125;
 /// Seconds per mining-frame (raise/impact pickaxe, four-frame cycle).
 const MINE_FRAME_TIME: f32 = 0.125;
 
+/// Seconds of continuous contact with a mineable rock before mining begins.
+const MINE_PUSH_TIME: f32 = 0.2;
+
 #[derive(Debug, Clone)]
 pub struct Player {
     /// Center of the hitbox, in world pixels.
@@ -33,6 +36,11 @@ pub struct Player {
     pub mining: Option<Mining>,
     walk_anim_timer: f32,
     idle_anim_timer: f32,
+    /// How long the player has been continuously pushing into a mineable rock,
+    /// plus the cell being pushed into. Reset whenever the contact target
+    /// changes or contact is lost.
+    push_timer: f32,
+    push_target: Option<(i32, i32)>,
 }
 
 impl Player {
@@ -45,38 +53,52 @@ impl Player {
             mining: None,
             walk_anim_timer: 0.0,
             idle_anim_timer: 0.0,
+            push_timer: 0.0,
+            push_target: None,
         }
     }
 
     /// Advance the player by one frame.
     ///
-    /// `intent` is an unnormalized move direction; `mine_held` is the mine
-    /// action. If a mine is already in progress and `mine_held` is true, the
-    /// player keeps mining the **same** cell (movement is ignored while mining,
-    /// so the facing/target stays stable — never re-aimed or aborted by pressing
-    /// a direction). Otherwise, if `mine_held` and the player faces a mineable
-    /// cell, a new mine begins: movement stops and `progress` accrues over
-    /// `mining_time` seconds, then the cell becomes `Dirt`. If nothing is
-    /// being mined, the player moves normally and any mining state is cleared.
-    pub fn update(&mut self, intent: Vec2, mine_held: bool, map: &mut Map, mining_time: f32, dt: f32) {
-        let target = if mine_held {
-            match self.mining {
-                // Keep digging the current target; don't re-aim from movement.
-                Some(m) => Some(m.target),
-                None => mining::mine_target(self.pos, self.facing, map),
-            }
-        } else {
-            None
-        };
+    /// `intent` is an unnormalized move direction. Mining is triggered by
+    /// walking into a mineable rock: while the player is flush against (and
+    /// pressing into) the same mineable cell continuously for
+    /// [`MINE_PUSH_TIME`] seconds, mining begins. Once mining is in progress the
+    /// player keeps digging the same cell (movement is ignored while mining, so
+    /// the facing/target stays stable). When `progress` reaches `mining_time`
+    /// seconds the cell becomes `Dirt`. If nothing is being mined the player
+    /// moves normally.
+    pub fn update(&mut self, intent: Vec2, map: &mut Map, mining_time: f32, dt: f32) {
+        // If already mining, keep digging the same target; never re-aim.
+        if let Some(m) = &self.mining {
+            self.mine(m.target, map, mining_time, dt);
+            return;
+        }
 
-        match target {
-            Some(t) => self.mine(t, map, mining_time, dt),
-            None => {
-                self.mining = None;
-                if intent.length_squared() > 0.0 {
-                    self.facing = intent.normalize();
+        // Otherwise walk, then see if we're pressing into a mineable rock.
+        if intent.length_squared() > 0.0 {
+            self.facing = intent.normalize();
+        }
+        self.move_free(intent, map, dt);
+
+        // Track continuous contact with a mineable cell; start mining after the
+        // contact interval elapses.
+        let contact = mining::pushed_target(self.pos, self.facing, map, movement::HITBOX_HALF);
+        match contact {
+            Some(t) => {
+                if self.push_target == Some(t) {
+                    self.push_timer += dt;
+                } else {
+                    self.push_target = Some(t);
+                    self.push_timer = dt;
                 }
-                self.move_free(intent, map, dt);
+                if self.push_timer >= MINE_PUSH_TIME {
+                    self.mine(t, map, mining_time, dt);
+                }
+            }
+            None => {
+                self.push_timer = 0.0;
+                self.push_target = None;
             }
         }
     }
@@ -93,6 +115,8 @@ impl Player {
         self.motion = PlayerMotion::Mine(((progress / MINE_FRAME_TIME) as usize % MINE_FRAMES) as u8);
         self.walk_anim_timer = 0.0;
         self.idle_anim_timer = 0.0;
+        self.push_timer = 0.0;
+        self.push_target = Some(target);
 
         if progress >= mining_time {
             map.set_tile(target.0, target.1, Tile::Dirt);
@@ -160,6 +184,12 @@ mod tests {
         Vec2::new(cell.0 as f32 * TILE_SIZE + TILE_SIZE / 2.0, cell.1 as f32 * TILE_SIZE + TILE_SIZE / 2.0)
     }
 
+    /// Player centred in cell (2,2) but flush against its east wall, i.e. the
+    /// player's right edge touches the shared boundary with cell (3,2).
+    fn flush_east_of(cell: (i32, i32)) -> Vec2 {
+        Vec2::new(cell.0 as f32 * TILE_SIZE - HITBOX_HALF, cell.1 as f32 * TILE_SIZE + TILE_SIZE / 2.0)
+    }
+
     fn player_at_center() -> Player {
         Player::new(center_of((2, 2)), TEST_SPEED)
     }
@@ -168,10 +198,13 @@ mod tests {
     fn moving_into_solid_tile_is_blocked() {
         let mut map = test_map();
         let mut p = player_at_center();
-        p.update(Vec2::new(1.0, 0.0), false, &mut map, 0.8, 1.0);
-        // The right edge must stop exactly at the rock's left edge (x = 3*16).
+        // One small step to the right against the rock; the contact interval has
+        // not elapsed (dt < 0.2s) so the player is blocked, not yet mining.
+        p.update(Vec2::new(1.0, 0.0), &mut map, 0.8, 0.05);
+        // The right edge must stop exactly at the rock's left edge (x = 3*32).
         assert!((p.pos.x + HITBOX_HALF - 3.0 * TILE_SIZE).abs() < 0.001);
         assert!(p.pos.x <= 3.0 * TILE_SIZE - HITBOX_HALF + 0.001);
+        assert!(p.mining.is_none(), "no mining after one short step");
     }
 
     #[test]
@@ -179,7 +212,7 @@ mod tests {
         let mut map = open_map();
         let mut p = Player::new(center_of((2, 2)), TEST_SPEED);
         let before = p.pos;
-        p.update(Vec2::new(1.0, 0.0), false, &mut map, 0.8, 1.0 / 60.0);
+        p.update(Vec2::new(1.0, 0.0), &mut map, 0.8, 1.0 / 60.0);
         assert!(p.pos.x > before.x, "should move through open floor");
         assert!((p.pos.x - before.x - TEST_SPEED * (1.0 / 60.0)).abs() < 0.001);
     }
@@ -190,8 +223,8 @@ mod tests {
         let (mut map1, mut map2) = (test_map(), test_map());
         let (mut p1, mut p2) = (player_at_center(), player_at_center());
         let (b1, b2) = (p1.pos, p2.pos);
-        p1.update(Vec2::new(1.0, 0.0), false, &mut map1, 0.8, dt);
-        p2.update(Vec2::new(1.0, 1.0), false, &mut map2, 0.8, dt);
+        p1.update(Vec2::new(1.0, 0.0), &mut map1, 0.8, dt);
+        p2.update(Vec2::new(1.0, 1.0), &mut map2, 0.8, dt);
         let d1 = (p1.pos - b1).length();
         let d2 = (p2.pos - b2).length();
         assert!((d1 - d2).abs() < 0.001, "diagonal must not be faster");
@@ -205,7 +238,7 @@ mod tests {
         let dt = 1.0 / 60.0;
         let (mut saw0, mut saw3) = (false, false);
         for _ in 0..120 {
-            p.update(Vec2::new(1.0, 0.0), false, &mut map, 0.8, dt);
+            p.update(Vec2::new(1.0, 0.0), &mut map, 0.8, dt);
             match p.motion {
                 PlayerMotion::Walk(_) => {
                     saw0 |= p.motion == PlayerMotion::Walk(0);
@@ -216,7 +249,7 @@ mod tests {
         }
         assert!(saw0 && saw3, "walk cycle must visit frame 0 and frame 3");
         for _ in 0..5 {
-            p.update(Vec2::ZERO, false, &mut map, 0.8, dt);
+            p.update(Vec2::ZERO, &mut map, 0.8, dt);
         }
         assert!(matches!(p.motion, PlayerMotion::Idle(_)), "should idle when still");
     }
@@ -228,7 +261,7 @@ mod tests {
         let dt = 1.0 / 60.0;
         let (mut saw0, mut saw1) = (false, false);
         for _ in 0..60 {
-            p.update(Vec2::ZERO, false, &mut map, 0.8, dt);
+            p.update(Vec2::ZERO, &mut map, 0.8, dt);
             match p.motion {
                 PlayerMotion::Idle(f) => {
                     saw0 |= f == 0;
@@ -244,55 +277,66 @@ mod tests {
     fn mining_completes_and_turns_rock_to_dirt() {
         let mut map = open_map();
         map.set_tile(3, 2, Tile::Mineable);
-        let mut p = player_at_center();
-        p.facing = Vec2::new(1.0, 0.0);
-        let before = p.pos;
+        // Player flush against the rock's west face, pushing east.
+        let mut p = Player::new(flush_east_of((3, 2)), TEST_SPEED);
         let dt = 1.0 / 60.0;
-        // 1 second of held mining exceeds the 0.8s mining time.
-        for _ in 0..60 {
-            p.update(Vec2::ZERO, true, &mut map, 0.8, dt);
+        // Held push: ~0.2s contact interval, then 0.8s mining -> ~62 frames,
+        // so run a full second to be safe.
+        for _ in 0..70 {
+            p.update(Vec2::new(1.0, 0.0), &mut map, 0.8, dt);
         }
         assert_eq!(map.tile(3, 2), Tile::Dirt, "rock was mined through");
-        // Mining gates movement: the player never moved.
-        assert!((p.pos - before).length() < 0.001);
+        // After the rock breaks the player advances into the freed cell (beyond
+        // the old flush boundary at the rock's left edge).
+        assert!(p.pos.x > 3.0 * TILE_SIZE - HITBOX_HALF, "player should walk into the dug cell");
+    }
+
+    #[test]
+    fn mining_needs_continuous_contact_to_start() {
+        let mut map = open_map();
+        map.set_tile(3, 2, Tile::Mineable);
+        let mut p = Player::new(flush_east_of((3, 2)), TEST_SPEED);
+        let dt = 1.0 / 60.0;
+        // A single frame of contact (dt < 0.2s) does not begin mining.
+        p.update(Vec2::new(1.0, 0.0), &mut map, 0.8, dt);
+        assert!(p.mining.is_none(), "mining must not begin before 0.2s of contact");
+        assert_eq!(map.tile(3, 2), Tile::Mineable);
+        // Stop pushing; the contact timer must reset.
+        p.update(Vec2::ZERO, &mut map, 0.8, dt);
+        assert!(p.mining.is_none());
+        // Pushing again for 0.2s+ then mining through still works.
+        let mut total = 0f32;
+        while p.mining.is_none() {
+            let step = 1.0 / 120.0;
+            p.update(Vec2::new(1.0, 0.0), &mut map, 0.8, step);
+            total += step;
+            assert!(total < 1.0, "should start mining within a second");
+        }
     }
 
     #[test]
     fn unmineable_rock_cannot_be_mined() {
         let mut map = open_map();
         map.set_tile(3, 2, Tile::Unmineable);
-        let mut p = player_at_center();
-        p.facing = Vec2::new(1.0, 0.0);
+        let mut p = Player::new(flush_east_of((3, 2)), TEST_SPEED);
         for _ in 0..60 {
-            p.update(Vec2::ZERO, true, &mut map, 0.8, 1.0 / 60.0);
+            p.update(Vec2::new(1.0, 0.0), &mut map, 0.8, 1.0 / 60.0);
         }
         assert_eq!(map.tile(3, 2), Tile::Unmineable, "unmineable rock stays");
         assert!(p.mining.is_none(), "no mining engaged against a non-diggable cell");
     }
 
     #[test]
-    fn mining_holds_anim_and_ignores_solid() {
+    fn mining_ignores_unbreakable_rock() {
         let mut map = open_map();
         map.set_tile(3, 2, Tile::Unbreakable);
-        let mut p = player_at_center();
-        p.facing = Vec2::new(1.0, 0.0);
-        // Holding mine against a solid rock does not engage mining (nothing to dig).
-        p.update(Vec2::ZERO, true, &mut map, 0.8, 1.0 / 60.0);
+        let mut p = Player::new(flush_east_of((3, 2)), TEST_SPEED);
+        // Pushing against unbreakable rock never engages mining (nothing to dig).
+        for _ in 0..60 {
+            p.update(Vec2::new(1.0, 0.0), &mut map, 0.8, 1.0 / 60.0);
+        }
         assert!(p.mining.is_none());
         assert_eq!(map.tile(3, 2), Tile::Unbreakable);
-    }
-
-    #[test]
-    fn releasing_mine_clears_mining_and_resets_progress() {
-        let mut map = open_map();
-        map.set_tile(3, 2, Tile::Mineable);
-        let mut p = player_at_center();
-        p.facing = Vec2::new(1.0, 0.0);
-        p.update(Vec2::ZERO, true, &mut map, 0.8, 1.0 / 60.0);
-        assert!(p.mining.is_some());
-        p.update(Vec2::ZERO, false, &mut map, 0.8, 1.0 / 60.0);
-        assert!(p.mining.is_none(), "releasing the key clears mining");
-        assert_eq!(map.tile(3, 2), Tile::Mineable, "not yet mined");
     }
 
     #[test]
@@ -300,20 +344,22 @@ mod tests {
         let mut map = open_map();
         map.set_tile(3, 2, Tile::Mineable);
         map.set_tile(1, 2, Tile::Mineable);
-        let mut p = player_at_center();
-        // Begin mining the rock to the right for two frames (progress accrues).
-        p.facing = Vec2::new(1.0, 0.0);
-        p.update(Vec2::ZERO, true, &mut map, 0.8, 1.0 / 60.0);
-        p.update(Vec2::ZERO, true, &mut map, 0.8, 1.0 / 60.0);
+        let mut p = Player::new(flush_east_of((3, 2)), TEST_SPEED);
+        let dt = 1.0 / 60.0;
+        // Begin mining the rock to the right (contact interval + initial frames).
+        for _ in 0..20 {
+            p.update(Vec2::new(1.0, 0.0), &mut map, 0.8, dt);
+        }
+        assert_eq!(p.mining.map(|m| m.target), Some((3, 2)), "mining the east rock");
         let before = p.mining.unwrap().progress;
         assert!(before > 0.0);
-        // Press a direction while still holding mine: the mine target stays the
-        // same and progress keeps accruing (movement is ignored while mining).
-        p.update(Vec2::new(-1.0, 0.0), true, &mut map, 0.8, 1.0 / 60.0);
+        // Press a direction while still mining: the mine target stays the same
+        // and progress keeps accruing (movement is ignored while mining).
+        p.update(Vec2::new(-1.0, 0.0), &mut map, 0.8, dt);
         assert_eq!(p.mining.map(|m| m.target), Some((3, 2)), "target stable while mining");
         assert!(p.mining.unwrap().progress > before, "progress keeps accruing");
         // The player did not move despite the direction press (movement ignored).
-        assert_eq!(p.pos, center_of((2, 2)));
+        assert_eq!(p.pos, flush_east_of((3, 2)));
     }
 
     /// Fuzz: random movement (incl. rapid reversals, diagonals, variable dt)
@@ -351,9 +397,8 @@ mod tests {
             let dy = rng.gen_range(-1i32, 2i32);
             // dt from 1ms to 100ms (also stress the sub-stepper).
             let dt = rng.gen_range(1.0f32, 100.0) / 1000.0;
-            let mine = rng.gen_range(-1i32, 2i32) == 0;
 
-            p.update(Vec2::new(dx as f32, dy as f32), mine, &mut map, 0.8, dt);
+            p.update(Vec2::new(dx as f32, dy as f32), &mut map, 0.8, dt);
 
             let (x, y) = (p.pos.x, p.pos.y);
             assert!(x.is_finite() && y.is_finite(), "NaN at frame {frame}: ({x},{y})");

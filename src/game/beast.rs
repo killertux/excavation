@@ -10,7 +10,6 @@ use macroquad::prelude::Vec2;
 
 use super::map::Map;
 use super::movement;
-use super::TILE_SIZE;
 use crate::assets::ids::{BeastMotion, Direction, WALK_FRAMES};
 
 /// Beast walk speed, world px/s (roughly half the player's 240 px/s).
@@ -70,6 +69,7 @@ impl Beast {
 mod tests {
     use super::*;
     use crate::game::map::Tile;
+    use crate::game::TILE_SIZE;
 
     fn open_map() -> Map {
         let mut map = Map { width: 5, height: 5, tiles: vec![Tile::Dirt; 25], start: (0, 2), exit: (4, 2) };

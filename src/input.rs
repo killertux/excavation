@@ -17,8 +17,6 @@ use macroquad::prelude::*;
 pub struct Input {
     /// Movement intent (WASD/arrows), unnormalized. Zero when idle.
     pub move_: Vec2,
-    /// Whether the mine action is currently held (Space or E).
-    pub mine: bool,
 }
 
 /// Collect the current frame's input.
@@ -38,7 +36,5 @@ pub fn collect() -> Input {
         v.x += 1.0;
     }
 
-    let mine = is_key_down(KeyCode::Space) || is_key_down(KeyCode::E);
-
-    Input { move_: v, mine }
+    Input { move_: v }
 }
