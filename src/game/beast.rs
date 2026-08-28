@@ -291,6 +291,16 @@ pub fn decide(
     if straight_line_clear(map, beast, player) {
         return Plan::Charge;
     }
+    // Prefer a clear, already-dug (dirt-only) route to the player. Walking an
+    // existing tunnel is faster than digging, so the beast should use one even
+    // when a path through known rocks is the same length (or slightly shorter)
+    // — otherwise it would tunnel a pointless shortcut instead of following the
+    // open path the player made.
+    let dirt_only = |x: i32, y: i32| map.tile(x, y) == Tile::Dirt;
+    if let Some(path) = pathfinding::astar(beast, player, dirt_only) {
+        return Plan::Path(path);
+    }
+    // Otherwise allow digging through known mineable rock toward the player.
     let passable_to = |x: i32, y: i32| passable(x, y, map, known);
     if let Some(path) = pathfinding::astar(beast, player, passable_to) {
         return Plan::Path(path);
@@ -581,6 +591,103 @@ mod tests {
                 );
             }
             other => panic!("expected a fallback path, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn beast_reaches_player_via_clear_l_dirt_path() {
+        // An L-shaped dirt tunnel from the beast to the player, with the rest of
+        // the interior sealed by unbreakable rock. The beast and player are not
+        // aligned, so a non-straight A* along the tunnel is required.
+        let (w, h) = (7usize, 7usize);
+        let mut tiles = vec![Tile::Unbreakable; w * h];
+        let cs = |x: i32, y: i32| y as usize * w + x as usize;
+        for y in 1..=4 {
+            tiles[cs(1, y)] = Tile::Dirt;
+        }
+        for x in 1..=5 {
+            tiles[cs(x, 4)] = Tile::Dirt;
+        }
+        let mut map = Map { width: w, height: h, tiles, start: (1, 1), exit: (5, 4) };
+        let mut b = Beast::new(center_of((1, 1)), 140.0, 1.6, 0.25);
+        let player = center_of((5, 4));
+
+        // Up to ~10 s: the beast must A* along the clear dirt tunnel to reach the
+        // player's cell (it should not dig elsewhere or idle).
+        let mut reached = false;
+        for _ in 0..600 {
+            b.update(player, &mut map, 1.0 / 60.0);
+            if b.cell() == (5, 4) {
+                reached = true;
+                break;
+            }
+        }
+        assert!(reached, "beast should reach the player via the clear dirt tunnel");
+    }
+
+    #[test]
+    fn repro_clear_tunnel_real_map() {
+        use crate::config::map::MapConfig;
+        use crate::game::generation::generate;
+        let cfg = MapConfig::from_toml(r#"
+            width = 30
+            height = 20
+            unmineable_count = 20
+            beast_count = 1
+            start = { x = 15, y = 19 }
+            exit  = { x = 5,  y = 0 }
+        "#).unwrap();
+        let mut map = generate(&cfg, 12345).unwrap();
+        // Carve a full clear Dirt tunnel from the exit gap (beast spawn) down
+        // column x=5 to the bottom, then across row y=19 to the start gap, as if
+        // the player had dug straight to the beast.
+        for y in 0..map.height as i32 {
+            map.set_tile(5, y, Tile::Dirt);
+        }
+        for x in 0..=15 {
+            map.set_tile(x, 19, Tile::Dirt);
+        }
+        let mut b = Beast::new(center_of((5, 1)), 140.0, 1.6, 0.25);
+        let player = center_of((15, 19));
+        let mut reached = false;
+        for _ in 0..1200 {
+            b.update(player, &mut map, 1.0 / 60.0);
+            if b.cell() == (15, 19) {
+                reached = true;
+                break;
+            }
+        }
+        assert!(reached, "beast should walk the clear tunnel to the player");
+    }
+
+    #[test]
+    fn prefers_clear_dirt_tunnel_over_known_rock_shortcut() {
+        // A clear dirt tunnel to the player exists, and a shorter route through
+        // known-mineable rocks is also possible. The beast must prefer the
+        // already-dug tunnel (walking beats digging), not tunnel a shortcut
+        // through the rocks.
+        let (w, h) = (7usize, 5usize);
+        let mut tiles = vec![Tile::Unbreakable; w * h];
+        let cs = |x: i32, y: i32| y as usize * w + x as usize;
+        // Beast at (1,3), player at (5,3). Clear Dirt corridor via row 4, and a
+        // shorter row-3 path through known-mineable rocks (a dig shortcut).
+        for (x, y) in [(1, 3), (1, 4), (2, 4), (3, 4), (4, 4), (5, 4), (5, 3)] {
+            tiles[cs(x, y)] = Tile::Dirt;
+        }
+        for (x, y) in [(2, 3), (3, 3), (4, 3)] {
+            tiles[cs(x, y)] = Tile::Mineable;
+        }
+        let map = Map { width: w, height: h, tiles, start: (1, 3), exit: (5, 3) };
+        let known: HashSet<_> = [(2, 3), (3, 3), (4, 3)].into_iter().collect();
+        match decide(&map, &known, (1, 3), (5, 3)) {
+            Plan::Path(p) => {
+                assert_eq!(*p.last().unwrap(), (5, 3));
+                assert!(
+                    p.iter().all(|&(x, y)| map.tile(x, y) == Tile::Dirt),
+                    "beast should walk the clear dirt tunnel, got path {p:?}"
+                );
+            }
+            other => panic!("expected a path, got {other:?}"),
         }
     }
 
