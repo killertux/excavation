@@ -333,6 +333,23 @@ mod tests {
     }
 
     #[test]
+    fn re_update_after_completion_does_not_rebank() {
+        let mut r = run(12345);
+        r.level.beasts.clear();
+        r.level.gold_collected = 7;
+        let (ex, ey) = r.level.map.exit_pos();
+        r.level.player.pos = center_of(ex, ey);
+        let first = r.update(no_input(), 1.0 / 60.0);
+        assert!(matches!(first, RunEvent::LevelCompleted { .. }));
+        let (gold_after, score_after) = (r.gold, r.score_total);
+        // A spurious second update on the finished level must not re-bank.
+        let second = r.update(no_input(), 1.0 / 60.0);
+        assert_eq!(second, RunEvent::Playing, "finished level reports nothing on re-update");
+        assert_eq!(r.gold, gold_after, "gold is not double-banked");
+        assert_eq!(r.score_total, score_after, "score is not double-counted");
+    }
+
+    #[test]
     fn begin_next_level_persists_gold_lives_and_upgrades() {
         let mut r = run(12345);
         r.gold = 500;

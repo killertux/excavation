@@ -30,6 +30,10 @@ const SHOP_ITEMS: [ShopItem; 5] = [
     ShopItem::StickySmell,
 ];
 
+/// The index of the selectable "Continue → next level" row in the shop (one past
+/// the last item).
+const SHOP_CONTINUE: usize = SHOP_ITEMS.len();
+
 /// Top-level game-state machine.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GameState {
@@ -106,7 +110,8 @@ impl App {
     }
 
     fn update_shop(&mut self) {
-        let n = SHOP_ITEMS.len();
+        // The shop is the items plus a selectable "Continue" row (SHOP_CONTINUE).
+        let n = SHOP_ITEMS.len() + 1;
         if is_key_pressed(KeyCode::Up) || is_key_pressed(KeyCode::W) {
             self.shop_index = (self.shop_index + n - 1) % n;
         }
@@ -114,9 +119,14 @@ impl App {
             self.shop_index = (self.shop_index + 1) % n;
         }
         if is_key_pressed(KeyCode::Enter) || is_key_pressed(KeyCode::Space) {
-            let item = SHOP_ITEMS[self.shop_index];
-            let _ = self.run.buy(item);
+            if self.shop_index == SHOP_CONTINUE {
+                self.advance_from_shop();
+            } else {
+                let item = SHOP_ITEMS[self.shop_index];
+                let _ = self.run.buy(item);
+            }
         }
+        // Esc is always a shortcut to leave the shop.
         if is_key_pressed(KeyCode::Escape) {
             self.advance_from_shop();
         }
@@ -142,6 +152,7 @@ impl App {
                 screen_height(),
                 self.last_level_score,
                 self.last_level_gold,
+                self.run.score_total,
             ),
             GameState::Shop => draw_shop_overlay(
                 &self.assets,
@@ -341,7 +352,14 @@ impl App {
                 },
             );
         }
-        draw_text(&format!("Gold: {}", self.run.gold), 14.0, 66.0, 24.0, GOLD);
+        // During play, show the gold gathered this attempt (live, updates as the
+        // player collects pickups); on the outcome screens show the banked total.
+        let gold_display = if self.state == GameState::Playing {
+            self.run.level.gold_collected
+        } else {
+            self.run.gold
+        };
+        draw_text(&format!("Gold: {gold_display}"), 14.0, 66.0, 24.0, GOLD);
         draw_text(
             &format!("Level: {}/{}", self.run.level_index() + 1, self.run.level_count()),
             14.0,
@@ -349,18 +367,22 @@ impl App {
             24.0,
             WHITE,
         );
-        if let Some(e) = self.run.level.active_effect {
-            let name = match e.kind {
-                ConsumableKind::SuperPick => "Super Pick",
-                ConsumableKind::StickySmell => "Sticky Smell",
-            };
-            draw_text(
-                &format!("{name}: {:.1}s", e.remaining.max(0.0)),
-                14.0,
-                122.0,
-                20.0,
-                YELLOW,
-            );
+        // The active consumable timer only makes sense while actually playing; on
+        // the outcome screens the effect is frozen (the run isn't ticking).
+        if self.state == GameState::Playing {
+            if let Some(e) = self.run.level.active_effect {
+                let name = match e.kind {
+                    ConsumableKind::SuperPick => "Super Pick",
+                    ConsumableKind::StickySmell => "Sticky Smell",
+                };
+                draw_text(
+                    &format!("{name}: {:.1}s", e.remaining.max(0.0)),
+                    14.0,
+                    122.0,
+                    20.0,
+                    YELLOW,
+                );
+            }
         }
     }
 }
@@ -399,12 +421,14 @@ fn centered_text(text: &str, w: f32, y: f32, font: f32, color: Color) {
     draw_text(text, x, y, font, color);
 }
 
-/// The score/gold overlay shown right after a level completes.
-fn draw_level_complete_overlay(w: f32, h: f32, score: u64, gold: u32) {
+/// The score/gold overlay shown right after a level completes. Shows the level's
+/// gold and score plus the running total.
+fn draw_level_complete_overlay(w: f32, h: f32, score: u64, gold: u32, score_total: u64) {
     draw_overlay(w, h);
     centered_text("LEVEL COMPLETE", w, 120.0, 48.0, WHITE);
-    centered_text(&format!("Gold: {gold}"), w, 200.0, 28.0, GOLD);
-    centered_text(&format!("Score: {score}"), w, 240.0, 28.0, WHITE);
+    centered_text(&format!("Gold this level: {gold}"), w, 200.0, 28.0, GOLD);
+    centered_text(&format!("Score this level: {score}"), w, 240.0, 28.0, WHITE);
+    centered_text(&format!("Total score: {score_total}"), w, 276.0, 28.0, LIGHTGRAY);
     centered_text("Enter: continue to shop", w, h - 90.0, 20.0, LIGHTGRAY);
 }
 
@@ -441,7 +465,13 @@ fn draw_shop_overlay(assets: &Assets, w: f32, h: f32, run: &Run, selected: usize
         }
     }
 
-    centered_text("Enter/Space: buy    Esc: continue", w, h - 70.0, 20.0, LIGHTGRAY);
+    // The final, selectable "Continue → next level" row.
+    let cy = start_y + SHOP_ITEMS.len() as f32 * line_h;
+    let cursor = if selected == SHOP_CONTINUE { "> " } else { "  " };
+    let color = if selected == SHOP_CONTINUE { YELLOW } else { WHITE };
+    draw_text(&format!("{cursor}Continue  ->  next level"), left, cy, 22.0, color);
+
+    centered_text("Enter/Space: buy/continue    Esc: continue", w, h - 70.0, 20.0, LIGHTGRAY);
 }
 
 /// A short display label for a shop item, including its owned state.

@@ -99,12 +99,24 @@ impl MapConfig {
                 self.unmineable_count
             )));
         }
-        // Gold hides in mineable cells that survive the unmineable flip, so the
-        // two counts together cannot exceed the interior.
-        if self.gold_count as usize + self.unmineable_count > interior {
+        // Gold hides in mineable cells that survive the unmineable flip and the
+        // internal structures, so those three counts together cannot exceed the
+        // interior. (Structures in the interior otherwise leave too few mineable
+        // cells for the requested gold, and generation would silently clamp.)
+        let structure_interior = self
+            .structures
+            .iter()
+            .filter(|[x, y]| {
+                *x >= 1
+                    && *y >= 1
+                    && (*x as usize) < self.width.saturating_sub(1)
+                    && (*y as usize) < self.height.saturating_sub(1)
+            })
+            .count();
+        if self.gold_count as usize + self.unmineable_count + structure_interior > interior {
             return Err(ConfigError::Validation(format!(
-                "gold_count {} + unmineable_count {} exceeds the interior cell count {interior}",
-                self.gold_count, self.unmineable_count
+                "gold_count {} + unmineable_count {} + interior structures {} exceeds the interior cell count {interior}",
+                self.gold_count, self.unmineable_count, structure_interior
             )));
         }
         Ok(())
@@ -249,5 +261,38 @@ mod tests {
             MapConfig::from_toml(s),
             Err(ConfigError::Validation(_))
         ));
+    }
+
+    #[test]
+    fn rejects_gold_beyond_capacity_after_interior_structures() {
+        // Interior of a 6x6 map is 16 cells. 16 gold alone fits (16 <= 16), but
+        // one interior structure (2,2) leaves only 15 mineable cells, so the
+        // request is rejected. This is the structures-aware capacity rule.
+        let s = r#"
+            width = 6
+            height = 6
+            unmineable_count = 0
+            gold_count = 16
+            start = { x = 0, y = 2 }
+            exit  = { x = 5, y = 2 }
+            structures = [[2, 2]]
+        "#;
+        assert!(matches!(
+            MapConfig::from_toml(s),
+            Err(ConfigError::Validation(_))
+        ));
+
+        // The same gold fits once a structure is moved onto the border ring
+        // (border structures do not reduce the interior mineable pool).
+        let border = r#"
+            width = 6
+            height = 6
+            unmineable_count = 0
+            gold_count = 16
+            start = { x = 0, y = 2 }
+            exit  = { x = 5, y = 2 }
+            structures = [[0, 2]]
+        "#;
+        assert!(MapConfig::from_toml(border).is_ok(), "border structure does not consume the interior");
     }
 }

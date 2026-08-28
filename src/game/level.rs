@@ -58,6 +58,9 @@ pub struct Level {
     elapsed: f32,
     /// The active consumable effect, if any (per-level; resets on restart).
     pub active_effect: Option<ActiveEffect>,
+    /// Set once the level reports `Completed`. Guards against a caller
+    /// re-running `update` and re-banking gold/score (the level is over).
+    completed: bool,
 }
 
 impl Level {
@@ -87,6 +90,7 @@ impl Level {
             pickups: Vec::new(),
             elapsed: 0.0,
             active_effect: None,
+            completed: false,
         })
     }
 
@@ -112,6 +116,11 @@ impl Level {
     /// collects pickups, then checks for a catch (hitbox overlap), then whether
     /// the player reached the exit gap.
     pub fn update(&mut self, move_: Vec2, dt: f32) -> LevelEvent {
+        // The level is over; a caller that keeps calling `update` gets nothing
+        // further (prevents re-banking gold/score on a finished level).
+        if self.completed {
+            return LevelEvent::None;
+        }
         self.elapsed += dt;
         self.tick_effect(dt);
 
@@ -153,6 +162,7 @@ impl Level {
 
         // Reaching the exit gap completes the level.
         if player_on_exit(self.player.pos, self.map.exit_pos()) {
+            self.completed = true;
             return LevelEvent::Completed;
         }
 
@@ -216,6 +226,7 @@ impl Level {
         self.pickups.clear();
         self.elapsed = 0.0;
         self.active_effect = None;
+        self.completed = false;
     }
 }
 
