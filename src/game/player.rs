@@ -63,27 +63,46 @@ impl Player {
     /// `intent` is an unnormalized move direction. Mining is triggered by
     /// walking into a mineable rock: while the player is flush against (and
     /// pressing into) the same mineable cell continuously for
-    /// [`MINE_PUSH_TIME`] seconds, mining begins. Once mining is in progress the
-    /// player keeps digging the same cell (movement is ignored while mining, so
-    /// the facing/target stays stable). When `progress` reaches `mining_time`
-    /// seconds the cell becomes `Dirt`. If nothing is being mined the player
-    /// moves normally.
+    /// [`MINE_PUSH_TIME`] seconds, mining begins. An in-progress mine continues
+    /// **only while the player keeps pressing into that same rock**; releasing
+    /// the direction key (or pushing elsewhere) cancels it and discards the
+    /// progress — rocks have no "life", so the player must mine it again from
+    /// scratch. When `progress` reaches `mining_time` seconds the cell becomes
+    /// `Dirt`. If nothing is being mined the player moves normally.
     pub fn update(&mut self, intent: Vec2, map: &mut Map, mining_time: f32, dt: f32) {
-        // If already mining, keep digging the same target; never re-aim.
+        if intent.length_squared() > 0.0 {
+            self.facing = intent.normalize();
+        }
+        // The active push direction — zero when the key isn't held, so contact
+        // is truly "pressing into" rather than the stale facing.
+        let push_dir = if intent.length_squared() > 0.0 {
+            intent.normalize()
+        } else {
+            Vec2::ZERO
+        };
+
+        // Cancel an in-progress mine once the player stops pushing into it.
+        if let Some(m) = self.mining {
+            let still_pushing =
+                mining::pushed_target(self.pos, push_dir, map, movement::HITBOX_HALF)
+                    == Some(m.target);
+            if !still_pushing {
+                self.mining = None;
+            }
+        }
+
+        // If still mining, keep digging the same target (movement ignored).
         if let Some(m) = &self.mining {
             self.mine(m.target, map, mining_time, dt);
             return;
         }
 
         // Otherwise walk, then see if we're pressing into a mineable rock.
-        if intent.length_squared() > 0.0 {
-            self.facing = intent.normalize();
-        }
         self.move_free(intent, map, dt);
 
         // Track continuous contact with a mineable cell; start mining after the
         // contact interval elapses.
-        let contact = mining::pushed_target(self.pos, self.facing, map, movement::HITBOX_HALF);
+        let contact = mining::pushed_target(self.pos, push_dir, map, movement::HITBOX_HALF);
         match contact {
             Some(t) => {
                 if self.push_target == Some(t) {
@@ -340,10 +359,9 @@ mod tests {
     }
 
     #[test]
-    fn mining_is_not_retargeted_by_movement_input() {
+    fn mining_continues_while_still_pushing_same_rock() {
         let mut map = open_map();
         map.set_tile(3, 2, Tile::Mineable);
-        map.set_tile(1, 2, Tile::Mineable);
         let mut p = Player::new(flush_east_of((3, 2)), TEST_SPEED);
         let dt = 1.0 / 60.0;
         // Begin mining the rock to the right (contact interval + initial frames).
@@ -353,13 +371,76 @@ mod tests {
         assert_eq!(p.mining.map(|m| m.target), Some((3, 2)), "mining the east rock");
         let before = p.mining.unwrap().progress;
         assert!(before > 0.0);
-        // Press a direction while still mining: the mine target stays the same
-        // and progress keeps accruing (movement is ignored while mining).
-        p.update(Vec2::new(-1.0, 0.0), &mut map, 0.8, dt);
-        assert_eq!(p.mining.map(|m| m.target), Some((3, 2)), "target stable while mining");
+        // Keep pushing the SAME direction: mining continues and accrues.
+        p.update(Vec2::new(1.0, 0.0), &mut map, 0.8, dt);
+        assert_eq!(p.mining.map(|m| m.target), Some((3, 2)), "same-direction push keeps mining");
         assert!(p.mining.unwrap().progress > before, "progress keeps accruing");
         // The player did not move despite the direction press (movement ignored).
         assert_eq!(p.pos, flush_east_of((3, 2)));
+    }
+
+    #[test]
+    fn releasing_move_cancels_mining_and_resets_progress() {
+        let mut map = open_map();
+        map.set_tile(3, 2, Tile::Mineable);
+        let mut p = Player::new(flush_east_of((3, 2)), TEST_SPEED);
+        let dt = 1.0 / 60.0;
+        // Begin mining the rock to the right.
+        for _ in 0..20 {
+            p.update(Vec2::new(1.0, 0.0), &mut map, 0.8, dt);
+        }
+        assert_eq!(p.mining.map(|m| m.target), Some((3, 2)));
+        let mid_progress = p.mining.unwrap().progress;
+        assert!(mid_progress > 0.0);
+        // Releasing the direction key cancels mining; the rock keeps no progress
+        // (it is still mineable, and a fresh mine starts from zero).
+        p.update(Vec2::ZERO, &mut map, 0.8, dt);
+        assert!(p.mining.is_none(), "releasing the key cancels mining");
+        assert_eq!(map.tile(3, 2), Tile::Mineable, "rock has no life; still mineable");
+    }
+
+    #[test]
+    fn pushing_other_direction_does_not_hold_the_mine() {
+        let mut map = open_map();
+        map.set_tile(3, 2, Tile::Mineable);
+        map.set_tile(1, 2, Tile::Mineable);
+        let mut p = Player::new(flush_east_of((3, 2)), TEST_SPEED);
+        let dt = 1.0 / 60.0;
+        for _ in 0..20 {
+            p.update(Vec2::new(1.0, 0.0), &mut map, 0.8, dt);
+        }
+        assert_eq!(p.mining.map(|m| m.target), Some((3, 2)));
+        // Press the opposite direction: the mine is not held onto, so it resets
+        // (the east rock is still mineable, no progress kept).
+        p.update(Vec2::new(-1.0, 0.0), &mut map, 0.8, dt);
+        assert!(p.mining.is_none(), "pushing elsewhere cancels the mine");
+        assert_eq!(map.tile(3, 2), Tile::Mineable);
+    }
+
+    #[test]
+    fn restarting_a_mine_starts_from_zero() {
+        let mut map = open_map();
+        map.set_tile(3, 2, Tile::Mineable);
+        let mut p = Player::new(flush_east_of((3, 2)), TEST_SPEED);
+        let dt = 1.0 / 60.0;
+        // Mine a bit, then release.
+        for _ in 0..20 {
+            p.update(Vec2::new(1.0, 0.0), &mut map, 0.8, dt);
+        }
+        assert_eq!(p.mining.map(|m| m.target), Some((3, 2)));
+        p.update(Vec2::ZERO, &mut map, 0.8, dt);
+        // Re-push: mining restarts but progress begins from 0 (fresh mine).
+        let mut restarted = false;
+        for _ in 0..30 {
+            p.update(Vec2::new(1.0, 0.0), &mut map, 0.8, dt);
+            if let Some(m) = p.mining {
+                assert!(m.progress < 0.15, "restarted mine resets progress, got {}", m.progress);
+                restarted = true;
+                break;
+            }
+        }
+        assert!(restarted, "mining should restart on a new push");
+        assert_eq!(map.tile(3, 2), Tile::Mineable, "rock still unbroken");
     }
 
     /// Fuzz: random movement (incl. rapid reversals, diagonals, variable dt)
