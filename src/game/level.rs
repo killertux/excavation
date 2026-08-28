@@ -296,8 +296,6 @@ mod tests {
 
     #[test]
     fn reaching_exit_completes_the_level() {
-        // Beasts spawn on the exit gap, which would catch the player first, so
-        // use a beast-free map to isolate the exit-completion path.
         let no_beast = map_cfg("
             width = 30
             height = 20
@@ -356,5 +354,20 @@ mod tests {
             final_dist < spawn_dist,
             "beast carved closer to the player: {final_dist} vs spawn {spawn_dist}"
         );
+    }
+
+    #[test]
+    fn beast_guarding_exit_catches_before_completion() {
+        // A beast physically on the exit cell catches the arriving player before
+        // the level completes (the beast is the exit guard). Documents the
+        // catch-before-exit ordering in `update`.
+        let mut lv = level(12345);
+        let (ex, ey) = lv.map.exit_pos();
+        let pos = tile_center(ex as f32, ey as f32);
+        lv.player.pos = pos;
+        lv.beasts[0].pos = pos; // a beast sits exactly on the exit cell
+        let ev = lv.update(no_input(), 1.0 / 60.0);
+        assert_eq!(ev, LevelEvent::Caught, "a guarding beast catches the player first");
+        assert_eq!(lv.lives, 2, "the catch cost a life (3 -> 2)");
     }
 }

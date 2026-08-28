@@ -295,13 +295,18 @@ pub fn decide(
     if let Some(path) = pathfinding::astar(beast, player, passable_to) {
         return Plan::Path(path);
     }
-    // Fallback: dig toward the known mineable rock nearest the player.
-    let dig_target = known
+    // Fallback: dig toward the known mineable rock nearest the player that is
+    // actually reachable. Try candidates in increasing distance-to-player order
+    // so a nearby rock that happens to be walled off (unreachable) can't strand
+    // the beast in Idle — it falls through to the next reachable one.
+    let mut candidates: Vec<(i32, i32)> = known
         .iter()
         .filter(|&&(x, y)| map.tile(x, y) == Tile::Mineable)
-        .min_by_key(|&&(x, y)| manhattan((x, y), player));
-    if let Some(target) = dig_target {
-        if let Some(path) = pathfinding::astar(beast, *target, passable_to) {
+        .copied()
+        .collect();
+    candidates.sort_by_key(|&(x, y)| (manhattan((x, y), player), x, y));
+    for target in candidates {
+        if let Some(path) = pathfinding::astar(beast, target, passable_to) {
             return Plan::Path(path);
         }
     }
@@ -553,6 +558,30 @@ mod tests {
             map.set_tile(2, y, Tile::Mineable);
         }
         assert_eq!(decide(&map, &known, (1, 2), (3, 2)), Plan::Idle);
+    }
+
+    #[test]
+    fn fallback_tries_next_reachable_if_nearest_is_walled_off() {
+        let mut map = open_map();
+        // Seal the player at (3,2) so it is unreachable.
+        map.set_tile(3, 1, Tile::Unmineable);
+        map.set_tile(3, 3, Tile::Unmineable);
+        map.set_tile(2, 2, Tile::Unmineable);
+        // Enclose the *nearest*-to-player known rock at (2,1) so it's unreachable.
+        map.set_tile(1, 1, Tile::Unmineable);
+        map.set_tile(2, 1, Tile::Mineable); // known, nearest to player, but walled off
+        map.set_tile(1, 3, Tile::Mineable); // known, farther, reachable
+        let known: HashSet<_> = [(2, 1), (1, 3)].into_iter().collect();
+        match decide(&map, &known, (1, 2), (3, 2)) {
+            Plan::Path(p) => {
+                assert_eq!(
+                    *p.last().unwrap(),
+                    (1, 3),
+                    "should path to a reachable known rock (not idle) when the nearest is walled off"
+                );
+            }
+            other => panic!("expected a fallback path, got {other:?}"),
+        }
     }
 
     #[test]
