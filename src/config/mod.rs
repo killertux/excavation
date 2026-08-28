@@ -16,6 +16,8 @@ use std::fmt;
 pub enum ConfigError {
     /// TOML didn't deserialize into the expected struct.
     Toml(toml::de::Error),
+    /// TOML failed to serialize a struct back to text.
+    TomlSer(toml::ser::Error),
     /// The TOML was well-formed but semantically invalid.
     Validation(String),
 }
@@ -24,6 +26,7 @@ impl fmt::Display for ConfigError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ConfigError::Toml(e) => write!(f, "TOML parse error: {e}"),
+            ConfigError::TomlSer(e) => write!(f, "TOML serialization error: {e}"),
             ConfigError::Validation(msg) => write!(f, "config validation error: {msg}"),
         }
     }
@@ -34,5 +37,11 @@ impl std::error::Error for ConfigError {}
 impl From<toml::de::Error> for ConfigError {
     fn from(e: toml::de::Error) -> Self {
         ConfigError::Toml(e)
+    }
+}
+
+impl From<toml::ser::Error> for ConfigError {
+    fn from(e: toml::ser::Error) -> Self {
+        ConfigError::TomlSer(e)
     }
 }

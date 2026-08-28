@@ -1,11 +1,11 @@
 //! Per-level configuration from `assets/maps/levelXX.toml`.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use super::ConfigError;
 
 /// A grid coordinate `(x, y)`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Pos {
     pub x: i32,
     pub y: i32,
@@ -21,7 +21,7 @@ pub struct Pos {
 ///
 /// `start`/`exit` are the two **gaps in the border wall** (rendered as `Dirt`);
 /// the doors themselves were removed.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[allow(dead_code)]
 pub struct MapConfig {
     /// Grid width, in cells.
@@ -47,7 +47,7 @@ pub struct MapConfig {
     /// Exit gap, on the border (a hole in the wall).
     pub exit: Pos,
     /// Optional seed for reproducible generation; omit to randomize each run.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub seed: Option<u64>,
     /// Optional unbreakable internal structures, as `[x, y]` cells.
     #[serde(default)]
@@ -66,7 +66,20 @@ impl MapConfig {
         Ok(cfg)
     }
 
-    fn validate(&self) -> Result<(), ConfigError> {
+    /// Serialize this config back to a TOML document. Does **not** validate; call
+    /// [`MapConfig::validate`] first (or compose the two, as the editor does in
+    /// `serialize_checked`) to guarantee the round-trip `from_toml(to_toml(cfg))`
+    /// succeeds.
+    ///
+    /// The editor is the only non-test caller and is compiled out on wasm, so the
+    /// method is unused there (a wasm-build dead-code warning).
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+    pub fn to_toml(&self) -> Result<String, ConfigError> {
+        Ok(toml::to_string(self)?)
+    }
+
+    /// Validate this config for gameplay correctness.
+    pub fn validate(&self) -> Result<(), ConfigError> {
         if self.width == 0 || self.height == 0 {
             return Err(ConfigError::Validation(
                 "width and height must be > 0".into(),
@@ -294,5 +307,91 @@ mod tests {
             structures = [[0, 2]]
         "#;
         assert!(MapConfig::from_toml(border).is_ok(), "border structure does not consume the interior");
+    }
+
+    #[test]
+    fn to_toml_round_trips_a_full_config() {
+        let s = r#"
+            width = 30
+            height = 20
+            unmineable_count = 20
+            gold_count = 8
+            beast_count = 2
+            beast_speed_multiplier = 1.5
+            beast_mining_time_multiplier = 0.75
+            start = { x = 15, y = 19 }
+            exit  = { x = 5,  y = 0 }
+            seed = 12345
+            structures = [[8, 5], [9, 5], [10, 5]]
+        "#;
+        let cfg = MapConfig::from_toml(s).expect("valid map");
+        let text = cfg.to_toml().expect("serializes");
+        let back = MapConfig::from_toml(&text).expect("round-trip parses");
+        assert_eq!(back.width, 30);
+        assert_eq!(back.height, 20);
+        assert_eq!(back.unmineable_count, 20);
+        assert_eq!(back.gold_count, 8);
+        assert_eq!(back.beast_count, 2);
+        assert_eq!(back.beast_speed_multiplier, 1.5);
+        assert_eq!(back.beast_mining_time_multiplier, 0.75);
+        assert_eq!(back.start, Pos { x: 15, y: 19 });
+        assert_eq!(back.exit, Pos { x: 5, y: 0 });
+        assert_eq!(back.seed, Some(12345));
+        assert_eq!(back.structures, vec![[8, 5], [9, 5], [10, 5]]);
+    }
+
+    #[test]
+    fn to_toml_round_trips_a_minimal_config() {
+        // No seed, no structures, no optional counts (defaults to 0/None).
+        let s = r#"
+            width = 10
+            height = 8
+            unmineable_count = 3
+            start = { x = 0, y = 4 }
+            exit  = { x = 9, y = 4 }
+        "#;
+        let cfg = MapConfig::from_toml(s).expect("valid map");
+        let text = cfg.to_toml().expect("serializes");
+        let back = MapConfig::from_toml(&text).expect("round-trip parses");
+        assert_eq!(back.width, 10);
+        assert_eq!(back.height, 8);
+        assert_eq!(back.unmineable_count, 3);
+        assert_eq!(back.seed, None);
+        assert!(back.structures.is_empty());
+        assert_eq!(back.gold_count, 0);
+        assert_eq!(back.beast_count, 0);
+        assert_eq!(back.beast_speed_multiplier, 1.0);
+    }
+
+    #[test]
+    fn seed_none_omits_the_key_in_serialized_output() {
+        let s = r#"
+            width = 10
+            height = 8
+            unmineable_count = 3
+            start = { x = 0, y = 4 }
+            exit  = { x = 9, y = 4 }
+        "#;
+        let cfg = MapConfig::from_toml(s).expect("valid map");
+        let text = cfg.to_toml().expect("serializes");
+        assert!(!text.contains("seed"), "seed key must be omitted when None:\n{text}");
+    }
+
+    #[test]
+    fn to_toml_is_unchecked_but_from_toml_rejects() {
+        // `to_toml` is raw serialization (no validation), so an invalid config
+        // still serializes; `from_toml` then rejects it on the read side.
+        let mut cfg = MapConfig::from_toml(r#"
+            width = 10
+            height = 8
+            unmineable_count = 3
+            start = { x = 0, y = 4 }
+            exit  = { x = 9, y = 4 }
+        "#)
+        .expect("valid map");
+        cfg.exit = Pos { x: 5, y: 4 }; // interior, off the border ring
+        assert!(cfg.validate().is_err());
+        let text = cfg.to_toml().expect("serializes even when invalid");
+        assert!(MapConfig::from_toml(&text).is_err());
     }
 }
