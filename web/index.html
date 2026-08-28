@@ -24,6 +24,8 @@
     <canvas id="glcanvas" tabindex='1'></canvas>
     <!-- Vendored macroquad/miniquad loader (no CDN). See build-web.sh. -->
     <script src="mq_js_bundle.js"></script>
+    <!-- Web storage bridge (localStorage), must load before the wasm. -->
+    <script src="excavation_storage.js"></script>
     <script>
         // Load the compiled wasm. `load` is defined by mq_js_bundle.js.
         load("excavation.wasm");

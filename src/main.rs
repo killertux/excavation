@@ -18,7 +18,12 @@ mod app;
 mod assets;
 mod config;
 mod game;
+mod hud;
 mod input;
+mod menu;
+mod save;
+mod settings;
+mod ui;
 
 fn window_conf() -> Conf {
     Conf {

@@ -545,7 +545,7 @@ mod tests {
 
         let map_w = map.width as f32 * TILE_SIZE;
         let map_h = map.height as f32 * TILE_SIZE;
-        let mut rng = RandGenerator::new();
+        let rng = RandGenerator::new();
         rng.srand(0xDEADBEEF);
 
         for frame in 0..50_000 {

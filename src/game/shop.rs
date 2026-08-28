@@ -93,7 +93,6 @@ mod tests {
     use crate::config::game::GameConfig;
     use crate::config::map::MapConfig;
     use crate::game::run::Run;
-    use crate::game::upgrades::Upgrades;
 
     const GAME_TOML: &str = r#"
         [player]

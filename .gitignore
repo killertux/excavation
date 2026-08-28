@@ -10,3 +10,6 @@
 web/dist/
 web/assets/
 web/excavation.wasm
+
+# Save file (desktop persistence)
+excavation_save.json

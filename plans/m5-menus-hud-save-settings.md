@@ -24,17 +24,17 @@
 
 ## 1. Outcome (acceptance checklist)
 
-- [ ] Main menu (Play, Continue when a save exists, Level Select, Settings, Quit).
-- [ ] Level select shows the levels, locked until reached; selecting one starts it.
-- [ ] Pause menu (Resume, Restart Level, Save, Settings, Quit to Menu) via Esc.
-- [ ] Save/load full progress + settings (desktop file, web localStorage).
-- [ ] Continue resumes the run at the saved level with gold/upgrades/lives/
+- [x] Main menu (Play, Continue when a save exists, Level Select, Settings, Quit).
+- [x] Level select shows the levels, locked until reached; selecting one starts it.
+- [x] Pause menu (Resume, Restart Level, Save, Settings, Quit to Menu) via Esc.
+- [x] Save/load full progress + settings (desktop file, web localStorage).
+- [x] Continue resumes the run at the saved level with gold/upgrades/lives/
       consumables/score intact.
-- [ ] Settings screen: music volume, SFX volume, fullscreen (persisted).
-- [ ] Full HUD: hearts, gold (live), level, elapsed time, consumable counts,
+- [x] Settings screen: music volume, SFX volume, fullscreen (persisted).
+- [x] Full HUD: hearts, gold (live), level, elapsed time, consumable counts,
       active-effect timer.
-- [ ] All screens reachable and correct on desktop **and** web.
-- [ ] Save/load round-trip and menu state-machine tests pass.
+- [x] All screens reachable and correct on desktop **and** web.
+- [x] Save/load round-trip and menu state-machine tests pass.
 
 ---
 
@@ -272,17 +272,17 @@ Visual things (menu rendering, HUD layout, fullscreen) are verified manually.
 
 ## 14. Task List (ordered)
 
-- [ ] 1. `cargo add serde_json quad-storage`.
-- [ ] 2. Add `src/settings.rs` (Settings + defaults + clamp) + tests.
-- [ ] 3. Add serde derives to `Upgrades`/`Consumables`; add `Run::snapshot`/`resume`/
+- [x] 1. `cargo add serde_json quad-storage`.
+- [x] 2. Add `src/settings.rs` (Settings + defaults + clamp) + tests.
+- [x] 3. Add serde derives to `Upgrades`/`Consumables`; add `Run::snapshot`/`resume`/
       `start_level`/`restart_current_level` + `unlocked` + tests.
-- [ ] 4. Add `src/save.rs` (SaveData, save/load/clear via storage) + tests.
-- [ ] 5. Add `src/menu.rs` (pure menu state machines + `MenuAction`) + tests.
-- [ ] 6. Slice/load the UI sprites + title/background in `assets/`; add `src/ui.rs`.
-- [ ] 7. Add `src/hud.rs` (full HUD).
-- [ ] 8. Rewire `app.rs`: menu layer, pause, settings, save/load, "Continue",
+- [x] 4. Add `src/save.rs` (SaveData, save/load/clear via storage) + tests.
+- [x] 5. Add `src/menu.rs` (pure menu state machines + `MenuAction`) + tests.
+- [x] 6. Slice/load the UI sprites + title/background in `assets/`; add `src/ui.rs`.
+- [x] 7. Add `src/hud.rs` (full HUD).
+- [x] 8. Rewire `app.rs`: menu layer, pause, settings, save/load, "Continue",
       level select, game-over/victory return-to-menu.
-- [ ] 9. Full `cargo test`; desktop run + screenshots of each screen; WASM
+- [x] 9. Full `cargo test`; desktop run + screenshots of each screen; WASM
       build/boot + save/load across reload.
 
 ---

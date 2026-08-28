@@ -56,6 +56,29 @@ const BUY_LIVES_Y: u32 = 496;
 const WALK_SPEED_Y: u32 = 521;
 const MINING_SPEED_Y: u32 = 546;
 
+// M5 UI cells, all from the same atlas at their native sizes (not 32×32). The
+// source rects come from the committed `My project atlas.json` (§10 of the M5
+// plan). Ordering: normal / hover / pressed / disabled where applicable.
+const UI_BUTTON_Y: u32 = 571;
+const UI_BUTTON_W: u32 = 48;
+const UI_BUTTON_H: u32 = 16;
+const UI_BUTTON_XS: [u32; 4] = [0, 49, 98, 147];
+const UI_PANEL_Y: u32 = 588;
+const UI_PANEL_W: u32 = 64;
+const UI_PANEL_H: u32 = 48;
+const UI_SLIDER_Y: u32 = 637;
+const UI_SLIDER_W: u32 = 96;
+const UI_SLIDER_H: u32 = 24;
+const UI_SLIDER_XS: [u32; 4] = [0, 97, 194, 291];
+const UI_SCROLL_Y: u32 = 662;
+const UI_SCROLL_W: u32 = 32;
+const UI_SCROLL_H: u32 = 32;
+
+/// Maximum texture dimension for the large standalone PNGs, to keep GPU memory
+/// reasonable while staying crisp when scaled to the window.
+const UI_MAX_W: u32 = 1400;
+const UI_MAX_H: u32 = 800;
+
 /// The rock terrain families (each a 16-tile Wang set, indexed by mask).
 struct RockAtlas {
     /// Wang tiles for unbreakable rock, indexed by mask (0..15).
@@ -87,6 +110,18 @@ pub struct Assets {
     pickup: Vec<Texture2D>,
     /// M4 HUD/shop icon sprites, indexed by [`IconId`].
     icon: Vec<Texture2D>,
+    /// M5 UI button states (normal / hover / pressed / disabled).
+    ui_button: [Texture2D; 4],
+    /// M5 base GUI panel.
+    ui_panel: Texture2D,
+    /// M5 adjustable-bar states (normal / hover / pressed / disabled).
+    ui_slider: [Texture2D; 4],
+    /// M5 scrollbar fill (slider knob/fill).
+    ui_scroll: Texture2D,
+    /// The scaled title logo banner.
+    title_logo: Texture2D,
+    /// The scaled menu backdrop.
+    menu_background: Texture2D,
 }
 
 impl Assets {
@@ -125,6 +160,34 @@ impl Assets {
             load_cell_icon(&img, MINING_SPEED_Y, layout::ScaleMode::Stretch),
         ];
 
+        // M5 UI cells are sliced at native size (buttons/bars/panel have aspect
+        // ratios other than 1:1, so they are not forced to the 32 px tile).
+        let ui_button = load_native_rects(
+            &img,
+            &UI_BUTTON_XS.map(|x| layout::Rect::new(x, UI_BUTTON_Y, UI_BUTTON_W, UI_BUTTON_H)),
+        )
+        .try_into()
+        .expect("button has 4 states");
+        let ui_panel = load_native_rects(&img, &[layout::Rect::new(0, UI_PANEL_Y, UI_PANEL_W, UI_PANEL_H)])
+            .into_iter()
+            .next()
+            .expect("panel is a single cell");
+        let ui_slider = load_native_rects(
+            &img,
+            &UI_SLIDER_XS.map(|x| layout::Rect::new(x, UI_SLIDER_Y, UI_SLIDER_W, UI_SLIDER_H)),
+        )
+        .try_into()
+        .expect("slider has 4 states");
+        let ui_scroll = load_native_rects(&img, &[layout::Rect::new(0, UI_SCROLL_Y, UI_SCROLL_W, UI_SCROLL_H)])
+            .into_iter()
+            .next()
+            .expect("scroll fill is a single cell");
+
+        // Large standalone UI PNGs, scaled down at load.
+        let title_logo = load_scaled_png("assets/images/ui/title_logo.png", UI_MAX_W, UI_MAX_H).await;
+        let menu_background =
+            load_scaled_png("assets/images/backgrounds/menu_background.png", UI_MAX_W, UI_MAX_H).await;
+
         Assets {
             terrain: RockAtlas { unbreakable, mineable, dirt },
             player,
@@ -132,6 +195,12 @@ impl Assets {
             burst,
             pickup,
             icon,
+            ui_button,
+            ui_panel,
+            ui_slider,
+            ui_scroll,
+            title_logo,
+            menu_background,
         }
     }
 
@@ -169,6 +238,37 @@ impl Assets {
     pub fn icon(&self, id: IconId) -> &Texture2D {
         &self.icon[id as usize]
     }
+
+    /// A UI button frame: 0 = normal, 1 = hover, 2 = pressed, 3 = disabled.
+    pub fn ui_button(&self, state: usize) -> &Texture2D {
+        &self.ui_button[state % self.ui_button.len()]
+    }
+
+    /// The base GUI panel sprite.
+    pub fn ui_panel(&self) -> &Texture2D {
+        &self.ui_panel
+    }
+
+    /// An adjustable-bar (slider track) frame: 0 = normal, 1 = hover, 2 = pressed,
+    /// 3 = disabled.
+    pub fn ui_slider(&self, state: usize) -> &Texture2D {
+        &self.ui_slider[state % self.ui_slider.len()]
+    }
+
+    /// The scrollbar fill (slider knob/fill) sprite.
+    pub fn ui_scroll(&self) -> &Texture2D {
+        &self.ui_scroll
+    }
+
+    /// The scaled title logo banner.
+    pub fn title_logo(&self) -> &Texture2D {
+        &self.title_logo
+    }
+
+    /// The scaled menu backdrop image.
+    pub fn menu_background(&self) -> &Texture2D {
+        &self.menu_background
+    }
 }
 
 /// Slice a single 24×24 icon cell and resize it to the game's 32 px tile. The
@@ -180,6 +280,49 @@ fn load_cell_icon(img: &image::RgbaImage, y: u32, scale_mode: layout::ScaleMode)
         .into_iter()
         .next()
         .expect("icon cell should slice")
+}
+
+/// Crop `rects` from `img` at their **native** pixel size and upload each as a
+/// texture (no 32×32 resize). Used for the M5 UI cells, which have non-square
+/// aspect ratios (buttons, bars, panel).
+fn load_native_rects(img: &image::RgbaImage, rects: &[layout::Rect]) -> Vec<Texture2D> {
+    rects
+        .iter()
+        .map(|r| {
+            let crop = image::imageops::crop_imm(img, r.x, r.y, r.w, r.h).to_image();
+            let image = Image {
+                width: r.w as u16,
+                height: r.h as u16,
+                bytes: crop.into_raw(),
+            };
+            let tex = Texture2D::from_image(&image);
+            tex.set_filter(FilterMode::Nearest);
+            tex
+        })
+        .collect()
+}
+
+/// Load a standalone PNG and downscale it to fit within `max_w`×`max_h`
+/// (preserving aspect), so the large title/backdrop stay crisp without an
+/// oversized GPU texture.
+async fn load_scaled_png(path: &str, max_w: u32, max_h: u32) -> Texture2D {
+    let bytes = load_file(path).await.expect("png should load");
+    let img = image::load_from_memory(&bytes)
+        .expect("png should be a valid image")
+        .into_rgba8();
+    let (w, h) = img.dimensions();
+    let scale = (max_w as f32 / w as f32).min(max_h as f32 / h as f32).min(1.0);
+    let nw = ((w as f32 * scale).round() as u32).max(1);
+    let nh = ((h as f32 * scale).round() as u32).max(1);
+    let resized = image::imageops::resize(&img, nw, nh, image::imageops::FilterType::Lanczos3);
+    let image = Image {
+        width: nw as u16,
+        height: nh as u16,
+        bytes: resized.into_raw(),
+    };
+    let tex = Texture2D::from_image(&image);
+    tex.set_filter(FilterMode::Linear);
+    tex
 }
 
 /// Slice `cols` cells from a single atlas row starting at `row_y`, optionally

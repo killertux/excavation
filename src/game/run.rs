@@ -2,6 +2,8 @@
 //! progression. A `Run` owns a single [`Level`] and drives it; it is pure and
 //! testable (no GPU, no input polling — the caller feeds it an [`Input`]).
 
+use serde::{Deserialize, Serialize};
+
 use crate::config::game::GameConfig;
 use crate::config::map::MapConfig;
 use crate::game::consumables::{self, ConsumableKind, Consumables};
@@ -27,6 +29,22 @@ pub enum RunEvent {
     Victory,
 }
 
+/// The cross-level state a save/load preserves (the persistent part of a run).
+/// It deliberately excludes per-level simulation state (map, positions, pickups,
+/// elapsed, active effect): on load the level at `level_index` is rebuilt fresh.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct RunSnapshot {
+    pub gold: u32,
+    pub upgrades: Upgrades,
+    pub consumables: Consumables,
+    pub lives: u32,
+    pub score_total: u64,
+    pub level_index: usize,
+    /// The highest selectable level (1-based); a level is selectable when its
+    /// 1-based index is `<= unlocked`.
+    pub unlocked: usize,
+}
+
 /// The whole run: persistent cross-level state plus the current level.
 pub struct Run {
     pub gold: u32,
@@ -35,6 +53,8 @@ pub struct Run {
     pub lives: u32,
     pub score_total: u64,
     level_index: usize,
+    /// Highest selectable level (1-based), unlocked by advancing past it.
+    pub unlocked: usize,
     map_cfgs: Vec<MapConfig>,
     cfg: GameConfig,
     pub level: Level,
@@ -53,6 +73,7 @@ impl Run {
             lives: cfg.player.starting_lives,
             score_total: 0,
             level_index: 0,
+            unlocked: 1,
             map_cfgs,
             cfg,
             level,
@@ -72,6 +93,72 @@ impl Run {
     /// Whether the current level is the last one in `map_order`.
     pub fn is_last_level(&self) -> bool {
         self.level_index + 1 >= self.map_cfgs.len()
+    }
+
+    /// The highest selectable level (1-based). Levels `1..=unlocked` are unlocked.
+    pub fn unlocked(&self) -> usize {
+        self.unlocked
+    }
+
+    /// Snapshot the run-level state for saving (excludes per-level sim state).
+    pub fn snapshot(&self) -> RunSnapshot {
+        RunSnapshot {
+            gold: self.gold,
+            upgrades: self.upgrades,
+            consumables: self.consumables,
+            lives: self.lives,
+            score_total: self.score_total,
+            level_index: self.level_index,
+            unlocked: self.unlocked,
+        }
+    }
+
+    /// Resume a run from a snapshot, building the level at `snapshot.level_index`
+    /// with the saved upgrades. The level index is clamped to the available maps
+    /// so an invalid (e.g. truncated) save never panics.
+    pub fn resume(cfg: GameConfig, map_cfgs: Vec<MapConfig>, snap: RunSnapshot) -> Result<Run, generation::GenError> {
+        if map_cfgs.is_empty() {
+            return Err(generation::GenError::NoPath);
+        }
+        let level_index = snap.level_index.min(map_cfgs.len() - 1);
+        let map_cfg = map_cfgs[level_index].clone();
+        let level = build_level(&cfg, &map_cfg, &snap.upgrades)?;
+        Ok(Run {
+            gold: snap.gold,
+            upgrades: snap.upgrades,
+            consumables: snap.consumables,
+            lives: snap.lives,
+            score_total: snap.score_total,
+            level_index,
+            unlocked: snap.unlocked.max(level_index + 1).min(map_cfgs.len()),
+            map_cfgs,
+            cfg,
+            level,
+        })
+    }
+
+    /// Build a fresh level at `index` with the current run state (gold/upgrades/
+    /// lives/score carry over). Used by level select. If the run has ended
+    /// (0 lives), a replay restarts with a fresh life budget so re-entering a
+    /// level is playable. Returns an error if `index` is out of range.
+    pub fn start_level(&mut self, index: usize) -> Result<(), generation::GenError> {
+        if index >= self.map_cfgs.len() {
+            return Err(generation::GenError::NoPath);
+        }
+        self.level_index = index;
+        self.unlocked = self.unlocked.max(index + 1);
+        if self.lives == 0 {
+            self.lives = self.cfg.player.starting_lives;
+        }
+        let map_cfg = self.map_cfgs[index].clone();
+        self.level = build_level(&self.cfg, &map_cfg, &self.upgrades)?;
+        Ok(())
+    }
+
+    /// Restart the current level with a fresh random map (no life cost). Used by
+    /// the pause menu's "Restart Level".
+    pub fn restart_current_level(&mut self) {
+        self.level.restart(generation::fresh_random_seed());
     }
 
     /// Advance the simulation by `dt`. Handles consumable activation and the
@@ -101,7 +188,9 @@ impl Run {
 
     /// A catch costs a life; 0 lives is game over, else restart the level.
     fn on_caught(&mut self) -> RunEvent {
-        self.lives -= 1;
+        // `saturating_sub` guards against a resumed 0-lives save: a catch must
+        // never wrap `u32` to a huge value (which would silently skip game over).
+        self.lives = self.lives.saturating_sub(1);
         if self.lives == 0 {
             RunEvent::GameOver
         } else {
@@ -115,6 +204,8 @@ impl Run {
         self.gold += self.level.gold_collected;
         let score = score::level_score(self.level.elapsed(), self.level.gold_collected, &self.cfg.score);
         self.score_total += score;
+        // Beating a level unlocks the next one for the level select.
+        self.unlocked = self.unlocked.max((self.level_index + 2).min(self.map_cfgs.len()));
         if self.is_last_level() {
             RunEvent::Victory
         } else {
@@ -286,6 +377,18 @@ mod tests {
     }
 
     #[test]
+    fn zero_lives_catch_is_game_over_not_underflow() {
+        // A resumed save carrying 0 lives must not wrap `u32` (which would strand
+        // the player on infinite lives); a catch must simply be game over.
+        let mut r = run(12345);
+        r.lives = 0;
+        r.level.player.pos = r.level.beasts[0].pos;
+        let ev = r.update(no_input(), 1.0 / 60.0);
+        assert_eq!(ev, RunEvent::GameOver, "0 lives -> game over on the first catch");
+        assert_eq!(r.lives, 0, "lives must not underflow to a huge value");
+    }
+
+    #[test]
     fn completing_the_first_level_banks_gold_and_score() {
         let mut r = run(12345);
         // Drop the exit-guarding beast so the player can reach the exit.
@@ -362,5 +465,112 @@ mod tests {
         assert_eq!(r.upgrades.walk_speed, 2, "upgrades persist across levels");
         assert_eq!(r.level_index(), 1);
         assert_eq!(r.level.gold_collected, 0, "per-level gold does not carry over");
+    }
+
+    #[test]
+    fn snapshot_captures_run_state_and_resume_restores_it() {
+        let mut r = run(12345);
+        r.gold = 321;
+        r.upgrades.mining_speed = 2;
+        r.consumables.add(ConsumableKind::SuperPick);
+        r.lives = 4;
+        r.score_total = 777;
+        r.unlocked = 2;
+        let snap = r.snapshot();
+
+        assert_eq!(snap.gold, 321);
+        assert_eq!(snap.upgrades.mining_speed, 2);
+        assert_eq!(snap.lives, 4);
+        assert_eq!(snap.score_total, 777);
+        assert_eq!(snap.level_index, 0);
+        assert_eq!(snap.unlocked, 2);
+
+        // Resume from the snapshot into a fresh Run; the state is preserved.
+        let r2 = Run::resume(game(), vec![map_cfg(1, 1), map_cfg(0, 1)], snap).expect("resume builds");
+        assert_eq!(r2.snapshot(), snap, "resume reproduces the saved run state");
+        assert_eq!(r2.level_index(), 0);
+        assert_eq!(r2.gold, 321);
+        assert_eq!(r2.upgrades.mining_speed, 2);
+        assert_eq!(r2.consumables.count(ConsumableKind::SuperPick), 1);
+        assert_eq!(r2.lives, 4);
+    }
+
+    #[test]
+    fn resume_clamps_out_of_range_level_index() {
+        let snap = RunSnapshot {
+            gold: 10,
+            upgrades: Upgrades::default(),
+            consumables: Consumables::default(),
+            lives: 3,
+            score_total: 0,
+            level_index: 99, // only 2 maps exist
+            unlocked: 1,
+        };
+        let r = Run::resume(game(), vec![map_cfg(1, 1), map_cfg(0, 1)], snap).expect("resume clamps");
+        assert_eq!(r.level_index(), 1, "level index clamped to the last available map");
+    }
+
+    #[test]
+    fn resume_clamps_unlocked_to_level_count() {
+        // A hand-edited save claiming everything is unlocked must be capped.
+        let snap = RunSnapshot {
+            gold: 0,
+            upgrades: Upgrades::default(),
+            consumables: Consumables::default(),
+            lives: 3,
+            score_total: 0,
+            level_index: 0,
+            unlocked: 999,
+        };
+        let r = Run::resume(game(), vec![map_cfg(1, 1), map_cfg(0, 1)], snap).expect("resume clamps");
+        assert_eq!(r.unlocked(), 2, "unlocked clamped to the available level count");
+    }
+
+    #[test]
+    fn start_level_builds_requested_level_and_preserves_cross_level_state() {
+        let mut r = run(12345);
+        r.gold = 250;
+        r.lives = 2;
+        r.upgrades.walk_speed = 3;
+        r.unlocked = 2;
+        r.start_level(1).expect("start level 2");
+        assert_eq!(r.level_index(), 1, "the selected level becomes current");
+        assert_eq!(r.gold, 250, "run gold persists into the replayed level");
+        assert_eq!(r.lives, 2, "run lives persist");
+        assert_eq!(r.upgrades.walk_speed, 3, "upgrades persist");
+        assert_eq!(r.level.gold_collected, 0, "per-level gold is fresh");
+        assert_eq!(r.unlocked, 2, "unlock progress is not lost");
+    }
+
+    #[test]
+    fn start_level_out_of_range_errors() {
+        let mut r = run(12345);
+        assert!(matches!(r.start_level(5), Err(generation::GenError::NoPath)));
+    }
+
+    #[test]
+    fn restart_current_level_regenerates_map_without_spending_a_life() {
+        let mut r = run(12345);
+        let before = r.level.map.tiles.clone();
+        let lives_before = r.lives;
+        r.restart_current_level();
+        assert_ne!(r.level.map.tiles, before, "the map regenerates (fresh seed)");
+        assert_eq!(r.lives, lives_before, "restart costs no life");
+        assert_eq!(r.level_index(), 0, "still on the same level");
+    }
+
+    #[test]
+    fn unlocking_increments_when_advancing_past_the_furthest_level() {
+        let mut r = run(12345);
+        assert_eq!(r.unlocked(), 1, "level 1 unlocked at the start");
+        // Complete level 0 (clear the exit-guarding beast so the player reaches
+        // the exit) and assert level 2 becomes unlocked.
+        r.level.beasts.clear();
+        r.level.gold_collected = 1;
+        let (ex, ey) = r.level.map.exit_pos();
+        r.level.player.pos = center_of(ex, ey);
+        let ev = r.update(no_input(), 1.0 / 60.0);
+        assert!(matches!(ev, RunEvent::LevelCompleted { .. }));
+        assert_eq!(r.unlocked(), 2, "beating level 1 unlocks level 2");
     }
 }

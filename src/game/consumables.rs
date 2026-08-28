@@ -1,6 +1,8 @@
 //! Consumable items (pure): owned counts persist across levels; the **active**
 //! effect is per-level (owned by `Level`) and resets when a new level starts.
 
+use serde::{Deserialize, Serialize};
+
 use crate::config::game::ConsumablesConfig;
 
 /// The two consumable item kinds.
@@ -21,7 +23,7 @@ pub struct ActiveEffect {
 }
 
 /// Owned consumable counts, persisted across levels in `Run`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Consumables {
     pub super_pick: u32,
     pub sticky_smell: u32,

@@ -2,10 +2,12 @@
 //! Mining Speed is multiplicative per level (`0.85^level`), matching the §9.1
 //! example in the M4 plan.
 
+use serde::{Deserialize, Serialize};
+
 use crate::config::game::{MiningSpeedConfig, WalkSpeedConfig};
 
 /// The player's owned upgrade levels. Defaults to 0 (no upgrades bought).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Upgrades {
     pub walk_speed: u32,
     pub mining_speed: u32,

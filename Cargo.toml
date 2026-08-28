@@ -7,4 +7,10 @@ edition = "2024"
 image = { version = "0.25.10", default-features = false, features = ["png"] }
 macroquad = "0.4.16"
 serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.145"
 toml = "1.1.4"
+
+# Web (wasm) persistence uses a small, self-contained localStorage bridge
+# (`web/excavation_storage.js`) via `extern "C"` declarations in src/save.rs —
+# the vendored macroquad JS bundle does not ship the `quad-storage` plugin JS, so
+# that crate is intentionally avoided. Desktop persistence uses `std::fs`.
