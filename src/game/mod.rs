@@ -4,6 +4,7 @@
 pub mod beast;
 pub mod camera;
 pub mod generation;
+pub mod level;
 pub mod map;
 pub mod mining;
 pub mod movement;

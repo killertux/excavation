@@ -50,6 +50,13 @@ pub fn resolve_seed(config: &MapConfig) -> u64 {
     config.seed.unwrap_or_else(random_run_seed)
 }
 
+/// A fresh, non-reproducible per-run seed. Used when a level **restarts** after
+/// the player is caught (the config `seed` still makes the *first* load
+/// reproducible, but a caught life regenerates a brand-new random map).
+pub fn fresh_random_seed() -> u64 {
+    random_run_seed()
+}
+
 /// A per-run seed from the current wall clock in nanoseconds, mixed through the
 /// (locally seeded) macroquad PRNG so the low bits carry real entropy.
 fn random_run_seed() -> u64 {

@@ -33,6 +33,12 @@ pub fn move_axis(pos: &mut Vec2, map: &Map, horizontal: bool, amount: f32) {
     }
 }
 
+/// True when two entity hitboxes (both `2 × HITBOX_HALF` squares centered at `a`
+/// and `b`) overlap or touch. A grazing touch counts as a catch.
+pub fn hits(a: Vec2, b: Vec2) -> bool {
+    (a.x - b.x).abs() < 2.0 * HITBOX_HALF && (a.y - b.y).abs() < 2.0 * HITBOX_HALF
+}
+
 /// Push an entity's hitbox out of every solid tile it genuinely penetrates,
 /// along the given axis.
 ///
@@ -85,4 +91,27 @@ fn push_out_one_pass(pos: &mut Vec2, map: &Map, horizontal: bool) -> bool {
         }
     }
     pushed
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hits_true_on_overlap() {
+        // Two 24x24 hitboxes, centers 10 px apart on x -> overlapping.
+        assert!(hits(Vec2::new(100.0, 100.0), Vec2::new(110.0, 100.0)));
+        // Overlapping on y only.
+        assert!(hits(Vec2::new(100.0, 100.0), Vec2::new(100.0, 112.0)));
+        // Exactly identical centers.
+        assert!(hits(Vec2::new(100.0, 100.0), Vec2::new(100.0, 100.0)));
+    }
+
+    #[test]
+    fn hits_false_when_separated() {
+        // Centers 30 px apart (> 2 * 12 = 24) -> no overlap on x.
+        assert!(!hits(Vec2::new(100.0, 100.0), Vec2::new(130.0, 100.0)));
+        // Far apart on both axes.
+        assert!(!hits(Vec2::new(100.0, 100.0), Vec2::new(140.0, 140.0)));
+    }
 }

@@ -34,19 +34,19 @@ M3 turns the stub beast into the full AI and adds lives/restart/game-over.
 
 ## 1. Outcome (acceptance checklist)
 
-- [ ] `game.toml` gains `[beast]` (speed, mining time, replan interval) and
+- [x] `game.toml` gains `[beast]` (speed, mining time, replan interval) and
       `player.starting_lives`; both load and validate.
-- [ ] `beast_count` beasts spawn per level and chase independently.
-- [ ] Beasts implement the §5 knowledge model: a growing `known_mineable` set
+- [x] `beast_count` beasts spawn per level and chase independently.
+- [x] Beasts implement the §5 knowledge model: a growing `known_mineable` set
       learned from adjacent cells.
-- [ ] Beasts dig through known mineable rocks (never unmineable/unbreakable).
-- [ ] Beast decision loop: straight-line charge → A\* to player → A\* toward the
+- [x] Beasts dig through known mineable rocks (never unmineable/unbreakable).
+- [x] Beast decision loop: straight-line charge → A\* to player → A\* toward the
       known mineable rock closest to the player → idle (re-plans on a timer /
       when the plan breaks).
-- [ ] Touching a beast costs one life and regenerates a new map; zero lives =
+- [x] Touching a beast costs one life and regenerates a new map; zero lives =
       game over (placeholder overlays for both).
-- [ ] Lives are shown as a simple on-screen counter (real HUD is M5).
-- [ ] All new unit tests pass (beast AI, catch, lives, restart, multi-beast).
+- [x] Lives are shown as a simple on-screen counter (real HUD is M5).
+- [x] All new unit tests pass (beast AI, catch, lives, restart, multi-beast).
 
 ---
 
@@ -316,17 +316,17 @@ from `Level`'s data. This is the main structural change of M3.
 
 ## 13. Task List (ordered)
 
-- [ ] 1. Extend `config/game.rs` (`starting_lives`, `[beast]`) + `game.toml` + tests.
-- [ ] 2. Add `movement::hits` (AABB overlap) + tests.
-- [ ] 3. Rewrite `game/beast.rs`: `BeastState`, knowledge (`known_mineable`),
+- [x] 1. Extend `config/game.rs` (`starting_lives`, `[beast]`) + `game.toml` + tests.
+- [x] 2. Add `movement::hits` (AABB overlap) + tests.
+- [x] 3. Rewrite `game/beast.rs`: `BeastState`, knowledge (`known_mineable`),
       perception, decision loop, digging, re-plan; remove the old straight-line
       stub body. + tests.
-- [ ] 4. Add `game/level.rs` (`Level`, `LevelEvent`, `restart`) + tests.
-- [ ] 5. Rewire `app.rs` to own a `Level`; add `GameOver` state, lives counter,
+- [x] 4. Add `game/level.rs` (`Level`, `LevelEvent`, `restart`) + tests.
+- [x] 5. Rewire `app.rs` to own a `Level`; add `GameOver` state, lives counter,
       game-over overlay; spawn `beast_count` beasts.
-- [ ] 6. Point the default run at a map with beasts (or bump `level01`) for manual
+- [x] 6. Point the default run at a map with beasts (or bump `level01`) for manual
       testing.
-- [ ] 7. Full `cargo test`; desktop run + `--screenshot` (verify beast chases/digs,
+- [x] 7. Full `cargo test`; desktop run + `--screenshot` (verify beast chases/digs,
       catch→restart, lives decrement, game-over overlay); WASM build/boot check.
 
 ---

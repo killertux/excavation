@@ -1,3 +1,9 @@
 [player]
 base_speed = 240.0        # world px/s (32 px tile: ~7.5 tiles/s)
 base_mining_time = 0.8    # seconds to mine one rock
+starting_lives = 3        # lives at the start of a run
+
+[beast]
+base_speed = 140.0        # world px/s (slower than the player)
+base_mining_time = 1.6    # seconds to dig one rock (slower than the player)
+replan_interval = 0.25    # seconds between AI re-plans

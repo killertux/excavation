@@ -6,7 +6,7 @@ height = 20
 
 unmineable_count = 20
 gold_count = 8
-beast_count = 0
+beast_count = 1
 beast_speed_multiplier = 1.0
 beast_mining_time_multiplier = 1.0
 
