@@ -2,8 +2,8 @@
 
 use macroquad::prelude::Vec2;
 
-use super::map::Map;
 use super::TILE_SIZE;
+use super::map::Map;
 
 /// Half-extent of an entity's square hitbox (24×24 inside a 32×32 tile).
 pub const HITBOX_HALF: f32 = 12.0;
@@ -43,11 +43,12 @@ pub fn hits(a: Vec2, b: Vec2) -> bool {
 /// along the given axis.
 ///
 /// A solid tile is only acted on if the hitbox **actually overlaps** it (overlap
-/// > 0 on both axes). A tile the hitbox merely *touches* at a boundary is
-/// ignored — otherwise a neighbouring border cell the entity is flush against
-/// (e.g. the cells beside a door on the map edge) would shove it the wrong way
-/// and let it clip through rocks / off the map. Each penetrating tile is pushed
-/// toward the side the entity's centre is on; a few passes handle corners.
+/// is greater than 0 on both axes). A tile the hitbox merely *touches* at a
+/// boundary is ignored, otherwise a neighbouring border cell the entity is flush
+/// against (e.g. the cells beside a door on the map edge) would shove it the
+/// wrong way and let it clip through rocks / off the map. Each penetrating tile
+/// is pushed toward the side the entity's centre is on; a few passes handle
+/// corners.
 fn resolve_overlaps(pos: &mut Vec2, map: &Map, horizontal: bool) {
     for _ in 0..4 {
         if !push_out_one_pass(pos, map, horizontal) {
@@ -82,10 +83,18 @@ fn push_out_one_pass(pos: &mut Vec2, map: &Map, horizontal: bool) -> bool {
 
             if horizontal {
                 let mid = (left + right) / 2.0;
-                pos.x = if pos.x < mid { left - half } else { right + half };
+                pos.x = if pos.x < mid {
+                    left - half
+                } else {
+                    right + half
+                };
             } else {
                 let mid = (top + bottom) / 2.0;
-                pos.y = if pos.y < mid { top - half } else { bottom + half };
+                pos.y = if pos.y < mid {
+                    top - half
+                } else {
+                    bottom + half
+                };
             }
             pushed = true;
         }

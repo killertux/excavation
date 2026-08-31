@@ -76,17 +76,29 @@ mod tests {
 
     fn cfg() -> ConsumablesConfig {
         ConsumablesConfig {
-            super_pick: crate::config::game::ConsumableConfig { cost: 60, duration: 3.0 },
-            sticky_smell: crate::config::game::ConsumableConfig { cost: 40, duration: 5.0 },
+            super_pick: crate::config::game::ConsumableConfig {
+                cost: 60,
+                duration: 3.0,
+            },
+            sticky_smell: crate::config::game::ConsumableConfig {
+                cost: 40,
+                duration: 5.0,
+            },
         }
     }
 
     #[test]
     fn use_one_decrements_and_reports() {
-        let mut c = Consumables { super_pick: 2, sticky_smell: 0 };
+        let mut c = Consumables {
+            super_pick: 2,
+            sticky_smell: 0,
+        };
         assert!(c.use_one(ConsumableKind::SuperPick));
         assert_eq!(c.count(ConsumableKind::SuperPick), 1);
-        assert!(!c.use_one(ConsumableKind::StickySmell), "none owned -> cannot use");
+        assert!(
+            !c.use_one(ConsumableKind::StickySmell),
+            "none owned -> cannot use"
+        );
         assert_eq!(c.count(ConsumableKind::StickySmell), 0);
     }
 

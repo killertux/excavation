@@ -207,7 +207,10 @@ mod tests {
 
     #[test]
     fn anim_row_col_combine() {
-        let a = PlayerAnim { dir: Direction::Left, motion: PlayerMotion::Walk(1) };
+        let a = PlayerAnim {
+            dir: Direction::Left,
+            motion: PlayerMotion::Walk(1),
+        };
         assert_eq!(a.row(), 3);
         assert_eq!(a.col(), 4);
     }

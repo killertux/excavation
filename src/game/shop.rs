@@ -34,14 +34,18 @@ pub enum ShopError {
 /// The cost of `item` for the current run state (upgrade costs grow per level).
 pub fn cost(item: ShopItem, run: &Run, cfg: &GameConfig) -> u32 {
     match item {
-        ShopItem::WalkSpeed => {
-            upgrades::cost(run.upgrades.walk_speed, cfg.upgrades.walk_speed.max_level, &cfg.upgrades.walk_speed.cost_per_level)
-                .unwrap_or(u32::MAX)
-        }
-        ShopItem::MiningSpeed => {
-            upgrades::cost(run.upgrades.mining_speed, cfg.upgrades.mining_speed.max_level, &cfg.upgrades.mining_speed.cost_per_level)
-                .unwrap_or(u32::MAX)
-        }
+        ShopItem::WalkSpeed => upgrades::cost(
+            run.upgrades.walk_speed,
+            cfg.upgrades.walk_speed.max_level,
+            &cfg.upgrades.walk_speed.cost_per_level,
+        )
+        .unwrap_or(u32::MAX),
+        ShopItem::MiningSpeed => upgrades::cost(
+            run.upgrades.mining_speed,
+            cfg.upgrades.mining_speed.max_level,
+            &cfg.upgrades.mining_speed.cost_per_level,
+        )
+        .unwrap_or(u32::MAX),
         ShopItem::Lives => cfg.lives.cost,
         ShopItem::SuperPick => cfg.consumables.super_pick.cost,
         ShopItem::StickySmell => cfg.consumables.sticky_smell.cost,
@@ -65,14 +69,19 @@ pub fn buy(item: ShopItem, run: &mut Run, cfg: &GameConfig) -> Result<(), ShopEr
         // Distinguish maxed from unaffordable for the UI.
         let maxed = match item {
             ShopItem::WalkSpeed => run.upgrades.walk_speed >= cfg.upgrades.walk_speed.max_level,
-            ShopItem::MiningSpeed => run.upgrades.mining_speed >= cfg.upgrades.mining_speed.max_level,
+            ShopItem::MiningSpeed => {
+                run.upgrades.mining_speed >= cfg.upgrades.mining_speed.max_level
+            }
             ShopItem::Lives => run.lives >= cfg.player.max_lives,
             ShopItem::SuperPick | ShopItem::StickySmell => false,
         };
         if maxed {
             return Err(ShopError::AlreadyMaxed);
         }
-        return Err(ShopError::NotEnoughGold { cost: cost(item, run, cfg), gold: run.gold });
+        return Err(ShopError::NotEnoughGold {
+            cost: cost(item, run, cfg),
+            gold: run.gold,
+        });
     }
 
     let c = cost(item, run, cfg);
@@ -193,7 +202,10 @@ mod tests {
         let mut r = run_with_gold(1000);
         r.lives = 9; // at the cap
         assert!(!can_buy(ShopItem::Lives, &r, &game()));
-        assert_eq!(buy(ShopItem::Lives, &mut r, &game()), Err(ShopError::AlreadyMaxed));
+        assert_eq!(
+            buy(ShopItem::Lives, &mut r, &game()),
+            Err(ShopError::AlreadyMaxed)
+        );
     }
 
     #[test]
@@ -201,7 +213,10 @@ mod tests {
         let mut r = run_with_gold(10_000);
         r.upgrades.walk_speed = 5; // at max
         assert!(!can_buy(ShopItem::WalkSpeed, &r, &game()));
-        assert_eq!(buy(ShopItem::WalkSpeed, &mut r, &game()), Err(ShopError::AlreadyMaxed));
+        assert_eq!(
+            buy(ShopItem::WalkSpeed, &mut r, &game()),
+            Err(ShopError::AlreadyMaxed)
+        );
     }
 
     #[test]

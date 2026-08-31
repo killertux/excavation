@@ -20,7 +20,11 @@ mod tests {
     use crate::config::game::ScoreConfig;
 
     fn cfg() -> ScoreConfig {
-        ScoreConfig { par_time: 60.0, time_multiplier: 10.0, gold_multiplier: 5.0 }
+        ScoreConfig {
+            par_time: 60.0,
+            time_multiplier: 10.0,
+            gold_multiplier: 5.0,
+        }
     }
 
     #[test]

@@ -67,7 +67,10 @@ pub struct Run {
 impl Run {
     /// Start a fresh run on the first map, with starting lives and no upgrades.
     pub fn new(cfg: GameConfig, map_cfgs: Vec<MapConfig>) -> Result<Run, generation::GenError> {
-        debug_assert!(!map_cfgs.is_empty(), "map_order must list at least one level");
+        debug_assert!(
+            !map_cfgs.is_empty(),
+            "map_order must list at least one level"
+        );
         let map_cfg = map_cfgs[0].clone();
         let level = build_level(&cfg, &map_cfg, &Upgrades::default())?;
         Ok(Run {
@@ -121,7 +124,11 @@ impl Run {
     /// Resume a run from a snapshot, building the level at `snapshot.level_index`
     /// with the saved upgrades. The level index is clamped to the available maps
     /// so an invalid (e.g. truncated) save never panics.
-    pub fn resume(cfg: GameConfig, map_cfgs: Vec<MapConfig>, snap: RunSnapshot) -> Result<Run, generation::GenError> {
+    pub fn resume(
+        cfg: GameConfig,
+        map_cfgs: Vec<MapConfig>,
+        snap: RunSnapshot,
+    ) -> Result<Run, generation::GenError> {
         if map_cfgs.is_empty() {
             return Err(generation::GenError::NoPath);
         }
@@ -227,10 +234,16 @@ impl Run {
     /// Bank gold, add the level score, and advance or win.
     fn on_completed(&mut self) -> RunEvent {
         self.gold += self.level.gold_collected;
-        let score = score::level_score(self.level.elapsed(), self.level.gold_collected, &self.cfg.score);
+        let score = score::level_score(
+            self.level.elapsed(),
+            self.level.gold_collected,
+            &self.cfg.score,
+        );
         self.score_total += score;
         // Beating a level unlocks the next one for the level select.
-        self.unlocked = self.unlocked.max((self.level_index + 2).min(self.map_cfgs.len()));
+        self.unlocked = self
+            .unlocked
+            .max((self.level_index + 2).min(self.map_cfgs.len()));
         if self.is_last_level() {
             RunEvent::Victory
         } else {
@@ -243,7 +256,11 @@ impl Run {
     pub fn begin_next_level(&mut self) -> Result<RunEvent, generation::GenError> {
         self.level_index += 1;
         self.sound_events.clear();
-        let map_cfg = self.map_cfgs.get(self.level_index).cloned().ok_or(generation::GenError::NoPath)?;
+        let map_cfg = self
+            .map_cfgs
+            .get(self.level_index)
+            .cloned()
+            .ok_or(generation::GenError::NoPath)?;
         self.level = build_level(&self.cfg, &map_cfg, &self.upgrades)?;
         Ok(RunEvent::Playing)
     }
@@ -273,8 +290,16 @@ fn build_level(
 ) -> Result<Level, generation::GenError> {
     let seed = generation::resolve_seed(map_cfg);
     let params = LevelParams {
-        player_speed: upgrades::walk_speed(cfg.player.base_speed, upgrades, &cfg.upgrades.walk_speed),
-        player_mining_time: upgrades::mining_time(cfg.player.base_mining_time, upgrades, &cfg.upgrades.mining_speed),
+        player_speed: upgrades::walk_speed(
+            cfg.player.base_speed,
+            upgrades,
+            &cfg.upgrades.walk_speed,
+        ),
+        player_mining_time: upgrades::mining_time(
+            cfg.player.base_mining_time,
+            upgrades,
+            &cfg.upgrades.mining_speed,
+        ),
         beast_speed: cfg.beast.base_speed * map_cfg.beast_speed_multiplier,
         beast_mining_time: cfg.beast.base_mining_time * map_cfg.beast_mining_time_multiplier,
         replan_interval: cfg.beast.replan_interval,
@@ -357,7 +382,11 @@ mod tests {
     }
 
     fn no_input() -> Input {
-        Input { move_: Default::default(), use_super_pick: false, use_sticky_smell: false }
+        Input {
+            move_: Default::default(),
+            use_super_pick: false,
+            use_sticky_smell: false,
+        }
     }
 
     fn center_of(x: usize, y: usize) -> macroquad::prelude::Vec2 {
@@ -410,7 +439,11 @@ mod tests {
         r.lives = 0;
         r.level.player.pos = r.level.beasts[0].pos;
         let ev = r.update(no_input(), 1.0 / 60.0);
-        assert_eq!(ev, RunEvent::GameOver, "0 lives -> game over on the first catch");
+        assert_eq!(
+            ev,
+            RunEvent::GameOver,
+            "0 lives -> game over on the first catch"
+        );
         assert_eq!(r.lives, 0, "lives must not underflow to a huge value");
     }
 
@@ -425,7 +458,11 @@ mod tests {
         r.level.player.pos = center_of(ex, ey);
         let ev = r.update(no_input(), 1.0 / 60.0);
         let expected = score::level_score(r.level.elapsed(), 8, &game().score);
-        assert_eq!(ev, RunEvent::LevelCompleted { score: expected }, "first level completed");
+        assert_eq!(
+            ev,
+            RunEvent::LevelCompleted { score: expected },
+            "first level completed"
+        );
         assert_eq!(r.gold, 8, "gold banks on completion");
         assert_eq!(r.score_total, expected, "score added to the running total");
     }
@@ -448,17 +485,31 @@ mod tests {
         let mut r = run(12345);
         r.consumables.add(ConsumableKind::SuperPick);
         r.consumables.add(ConsumableKind::StickySmell);
-        let input = Input { move_: Default::default(), use_super_pick: true, use_sticky_smell: false };
+        let input = Input {
+            move_: Default::default(),
+            use_super_pick: true,
+            use_sticky_smell: false,
+        };
         let ev = r.update(input, 1.0 / 60.0);
         assert_eq!(ev, RunEvent::Playing);
         assert_eq!(r.consumables.count(ConsumableKind::SuperPick), 0);
         assert!(r.level.active_effect.is_some());
-        assert_eq!(r.level.active_effect.map(|e| e.kind), Some(ConsumableKind::SuperPick));
+        assert_eq!(
+            r.level.active_effect.map(|e| e.kind),
+            Some(ConsumableKind::SuperPick)
+        );
 
         // Using the same consumable again with none owned does nothing.
-        let input2 = Input { move_: Default::default(), use_super_pick: true, use_sticky_smell: false };
+        let input2 = Input {
+            move_: Default::default(),
+            use_super_pick: true,
+            use_sticky_smell: false,
+        };
         let _ = r.update(input2, 1.0 / 60.0);
-        assert!(r.level.active_effect.is_some(), "effect still active (nothing to re-use)");
+        assert!(
+            r.level.active_effect.is_some(),
+            "effect still active (nothing to re-use)"
+        );
     }
 
     #[test]
@@ -466,23 +517,43 @@ mod tests {
         let mut r = run(12345);
         r.consumables.add(ConsumableKind::SuperPick);
         r.consumables.add(ConsumableKind::StickySmell);
-        let input = Input { move_: Default::default(), use_super_pick: true, use_sticky_smell: true };
+        let input = Input {
+            move_: Default::default(),
+            use_super_pick: true,
+            use_sticky_smell: true,
+        };
         let ev = r.update(input, 1.0 / 60.0);
         assert_eq!(ev, RunEvent::Playing);
         let sounds = r.drain_sounds();
-        assert!(sounds.contains(&Sfx::SuperPick), "using a Super Pick reports it, got {sounds:?}");
-        assert!(sounds.contains(&Sfx::StickySmell), "using Sticky Smell reports it, got {sounds:?}");
+        assert!(
+            sounds.contains(&Sfx::SuperPick),
+            "using a Super Pick reports it, got {sounds:?}"
+        );
+        assert!(
+            sounds.contains(&Sfx::StickySmell),
+            "using Sticky Smell reports it, got {sounds:?}"
+        );
     }
 
     #[test]
     fn use_consumable_with_none_owned_reports_nothing() {
         let mut r = run(12345);
         // No consumables owned; pressing the use key must not emit a sound.
-        let input = Input { move_: Default::default(), use_super_pick: true, use_sticky_smell: true };
+        let input = Input {
+            move_: Default::default(),
+            use_super_pick: true,
+            use_sticky_smell: true,
+        };
         let _ = r.update(input, 1.0 / 60.0);
         let sounds = r.drain_sounds();
-        assert!(!sounds.contains(&Sfx::SuperPick), "no owned pick -> no super-pick sound");
-        assert!(!sounds.contains(&Sfx::StickySmell), "no owned smell -> no sticky sound");
+        assert!(
+            !sounds.contains(&Sfx::SuperPick),
+            "no owned pick -> no super-pick sound"
+        );
+        assert!(
+            !sounds.contains(&Sfx::StickySmell),
+            "no owned smell -> no sticky sound"
+        );
     }
 
     #[test]
@@ -508,8 +579,15 @@ mod tests {
             use_sticky_smell: false,
         };
         let ev = r.update(input, 1.0 / 60.0);
-        assert_eq!(ev, RunEvent::Caught, "caught on the same frame as the break");
-        assert_eq!(r.lives, 2, "a fresh run starts with 3 lives; one catch spends one");
+        assert_eq!(
+            ev,
+            RunEvent::Caught,
+            "caught on the same frame as the break"
+        );
+        assert_eq!(
+            r.lives, 2,
+            "a fresh run starts with 3 lives; one catch spends one"
+        );
 
         let sounds = r.drain_sounds();
         assert!(
@@ -530,7 +608,11 @@ mod tests {
         let (gold_after, score_after) = (r.gold, r.score_total);
         // A spurious second update on the finished level must not re-bank.
         let second = r.update(no_input(), 1.0 / 60.0);
-        assert_eq!(second, RunEvent::Playing, "finished level reports nothing on re-update");
+        assert_eq!(
+            second,
+            RunEvent::Playing,
+            "finished level reports nothing on re-update"
+        );
         assert_eq!(r.gold, gold_after, "gold is not double-banked");
         assert_eq!(r.score_total, score_after, "score is not double-counted");
     }
@@ -547,7 +629,10 @@ mod tests {
         assert_eq!(r.lives, 2, "lives persist across levels");
         assert_eq!(r.upgrades.walk_speed, 2, "upgrades persist across levels");
         assert_eq!(r.level_index(), 1);
-        assert_eq!(r.level.gold_collected, 0, "per-level gold does not carry over");
+        assert_eq!(
+            r.level.gold_collected, 0,
+            "per-level gold does not carry over"
+        );
     }
 
     #[test]
@@ -569,7 +654,8 @@ mod tests {
         assert_eq!(snap.unlocked, 2);
 
         // Resume from the snapshot into a fresh Run; the state is preserved.
-        let r2 = Run::resume(game(), vec![map_cfg(1, 1), map_cfg(0, 1)], snap).expect("resume builds");
+        let r2 =
+            Run::resume(game(), vec![map_cfg(1, 1), map_cfg(0, 1)], snap).expect("resume builds");
         assert_eq!(r2.snapshot(), snap, "resume reproduces the saved run state");
         assert_eq!(r2.level_index(), 0);
         assert_eq!(r2.gold, 321);
@@ -589,8 +675,13 @@ mod tests {
             level_index: 99, // only 2 maps exist
             unlocked: 1,
         };
-        let r = Run::resume(game(), vec![map_cfg(1, 1), map_cfg(0, 1)], snap).expect("resume clamps");
-        assert_eq!(r.level_index(), 1, "level index clamped to the last available map");
+        let r =
+            Run::resume(game(), vec![map_cfg(1, 1), map_cfg(0, 1)], snap).expect("resume clamps");
+        assert_eq!(
+            r.level_index(),
+            1,
+            "level index clamped to the last available map"
+        );
     }
 
     #[test]
@@ -605,8 +696,13 @@ mod tests {
             level_index: 0,
             unlocked: 999,
         };
-        let r = Run::resume(game(), vec![map_cfg(1, 1), map_cfg(0, 1)], snap).expect("resume clamps");
-        assert_eq!(r.unlocked(), 2, "unlocked clamped to the available level count");
+        let r =
+            Run::resume(game(), vec![map_cfg(1, 1), map_cfg(0, 1)], snap).expect("resume clamps");
+        assert_eq!(
+            r.unlocked(),
+            2,
+            "unlocked clamped to the available level count"
+        );
     }
 
     #[test]
@@ -628,7 +724,10 @@ mod tests {
     #[test]
     fn start_level_out_of_range_errors() {
         let mut r = run(12345);
-        assert!(matches!(r.start_level(5), Err(generation::GenError::NoPath)));
+        assert!(matches!(
+            r.start_level(5),
+            Err(generation::GenError::NoPath)
+        ));
     }
 
     #[test]
@@ -637,7 +736,10 @@ mod tests {
         let before = r.level.map.tiles.clone();
         let lives_before = r.lives;
         r.restart_current_level();
-        assert_ne!(r.level.map.tiles, before, "the map regenerates (fresh seed)");
+        assert_ne!(
+            r.level.map.tiles, before,
+            "the map regenerates (fresh seed)"
+        );
         assert_eq!(r.lives, lives_before, "restart costs no life");
         assert_eq!(r.level_index(), 0, "still on the same level");
     }

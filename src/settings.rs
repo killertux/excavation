@@ -20,7 +20,11 @@ pub struct Settings {
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { music_volume: 1.0, sfx_volume: 1.0, fullscreen: false }
+        Settings {
+            music_volume: 1.0,
+            sfx_volume: 1.0,
+            fullscreen: false,
+        }
     }
 }
 
@@ -35,11 +39,7 @@ impl Settings {
 
 /// Clamp a volume to `0.0..=1.0`, snapping NaN to 0.0.
 fn clamp_volume(v: f32) -> f32 {
-    if v.is_nan() {
-        0.0
-    } else {
-        v.clamp(0.0, 1.0)
-    }
+    if v.is_nan() { 0.0 } else { v.clamp(0.0, 1.0) }
 }
 
 /// Raise a volume by `delta` (clamped to the unit range). Callers pass a small
@@ -62,7 +62,11 @@ mod tests {
 
     #[test]
     fn clamp_keeps_in_range() {
-        let mut s = Settings { music_volume: 1.5, sfx_volume: -0.2, fullscreen: true };
+        let mut s = Settings {
+            music_volume: 1.5,
+            sfx_volume: -0.2,
+            fullscreen: true,
+        };
         s.clamp();
         assert_eq!(s.music_volume, 1.0);
         assert_eq!(s.sfx_volume, 0.0);
@@ -70,7 +74,11 @@ mod tests {
 
     #[test]
     fn clamp_maps_nan_to_zero() {
-        let mut s = Settings { music_volume: f32::NAN, sfx_volume: 0.5, fullscreen: false };
+        let mut s = Settings {
+            music_volume: f32::NAN,
+            sfx_volume: 0.5,
+            fullscreen: false,
+        };
         s.clamp();
         assert_eq!(s.music_volume, 0.0);
         assert_eq!(s.sfx_volume, 0.5);

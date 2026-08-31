@@ -20,7 +20,10 @@ pub struct Pickup {
 impl Pickup {
     /// A gold pickup at the given world position.
     pub fn gold(pos: Vec2) -> Pickup {
-        Pickup { pos, kind: PickupKind::Gold }
+        Pickup {
+            pos,
+            kind: PickupKind::Gold,
+        }
     }
 }
 

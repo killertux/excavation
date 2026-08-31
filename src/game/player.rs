@@ -100,7 +100,8 @@ impl Player {
                 mining::pushed_target_ex(self.pos, push_dir, map, movement::HITBOX_HALF, true)
                     == Some(m.target)
             } else {
-                mining::pushed_target(self.pos, push_dir, map, movement::HITBOX_HALF) == Some(m.target)
+                mining::pushed_target(self.pos, push_dir, map, movement::HITBOX_HALF)
+                    == Some(m.target)
             };
             if !still_pushing {
                 self.mining = None;
@@ -115,11 +116,12 @@ impl Player {
         }
 
         // Super Pick: break a rock the frame the player pushes into it.
-        if self.super_pick {
-            if let Some(t) = mining::pushed_target_ex(self.pos, push_dir, map, movement::HITBOX_HALF, true) {
-                self.mine(t, map, mining_time, dt);
-                return;
-            }
+        if self.super_pick
+            && let Some(t) =
+                mining::pushed_target_ex(self.pos, push_dir, map, movement::HITBOX_HALF, true)
+        {
+            self.mine(t, map, mining_time, dt);
+            return;
         }
 
         // Otherwise walk, then see if we're pressing into a mineable rock.
@@ -172,7 +174,8 @@ impl Player {
             0.0
         };
         self.mining = Some(Mining { target, progress });
-        self.motion = PlayerMotion::Mine(((progress / MINE_FRAME_TIME) as usize % MINE_FRAMES) as u8);
+        self.motion =
+            PlayerMotion::Mine(((progress / MINE_FRAME_TIME) as usize % MINE_FRAMES) as u8);
         self.walk_anim_timer = 0.0;
         self.idle_anim_timer = 0.0;
         self.push_timer = 0.0;
@@ -239,13 +242,19 @@ mod tests {
     }
 
     fn center_of(cell: (i32, i32)) -> Vec2 {
-        Vec2::new(cell.0 as f32 * TILE_SIZE + TILE_SIZE / 2.0, cell.1 as f32 * TILE_SIZE + TILE_SIZE / 2.0)
+        Vec2::new(
+            cell.0 as f32 * TILE_SIZE + TILE_SIZE / 2.0,
+            cell.1 as f32 * TILE_SIZE + TILE_SIZE / 2.0,
+        )
     }
 
     /// Player centred in cell (2,2) but flush against its east wall, i.e. the
     /// player's right edge touches the shared boundary with cell (3,2).
     fn flush_east_of(cell: (i32, i32)) -> Vec2 {
-        Vec2::new(cell.0 as f32 * TILE_SIZE - HITBOX_HALF, cell.1 as f32 * TILE_SIZE + TILE_SIZE / 2.0)
+        Vec2::new(
+            cell.0 as f32 * TILE_SIZE - HITBOX_HALF,
+            cell.1 as f32 * TILE_SIZE + TILE_SIZE / 2.0,
+        )
     }
 
     fn player_at_center() -> Player {
@@ -309,7 +318,10 @@ mod tests {
         for _ in 0..5 {
             p.update(Vec2::ZERO, &mut map, 0.8, dt);
         }
-        assert!(matches!(p.motion, PlayerMotion::Idle(_)), "should idle when still");
+        assert!(
+            matches!(p.motion, PlayerMotion::Idle(_)),
+            "should idle when still"
+        );
     }
 
     #[test]
@@ -346,7 +358,10 @@ mod tests {
         assert_eq!(map.tile(3, 2), Tile::Dirt, "rock was mined through");
         // After the rock breaks the player advances into the freed cell (beyond
         // the old flush boundary at the rock's left edge).
-        assert!(p.pos.x > 3.0 * TILE_SIZE - HITBOX_HALF, "player should walk into the dug cell");
+        assert!(
+            p.pos.x > 3.0 * TILE_SIZE - HITBOX_HALF,
+            "player should walk into the dug cell"
+        );
     }
 
     #[test]
@@ -357,7 +372,10 @@ mod tests {
         let dt = 1.0 / 60.0;
         // A single frame of contact (dt < 0.2s) does not begin mining.
         p.update(Vec2::new(1.0, 0.0), &mut map, 0.8, dt);
-        assert!(p.mining.is_none(), "mining must not begin before 0.2s of contact");
+        assert!(
+            p.mining.is_none(),
+            "mining must not begin before 0.2s of contact"
+        );
         assert_eq!(map.tile(3, 2), Tile::Mineable);
         // Stop pushing; the contact timer must reset.
         p.update(Vec2::ZERO, &mut map, 0.8, dt);
@@ -381,7 +399,10 @@ mod tests {
             p.update(Vec2::new(1.0, 0.0), &mut map, 0.8, 1.0 / 60.0);
         }
         assert_eq!(map.tile(3, 2), Tile::Unmineable, "unmineable rock stays");
-        assert!(p.mining.is_none(), "no mining engaged against a non-diggable cell");
+        assert!(
+            p.mining.is_none(),
+            "no mining engaged against a non-diggable cell"
+        );
     }
 
     #[test]
@@ -405,8 +426,16 @@ mod tests {
         p.super_pick = true;
         // The mine completes the first frame the player pushes into the rock.
         p.update(Vec2::new(1.0, 0.0), &mut map, 0.8, 1.0 / 60.0);
-        assert_eq!(map.tile(3, 2), Tile::Dirt, "Super Pick breaks an unmineable rock instantly");
-        assert_eq!(p.take_excavated(), Some((3, 2)), "the excavated cell is reported");
+        assert_eq!(
+            map.tile(3, 2),
+            Tile::Dirt,
+            "Super Pick breaks an unmineable rock instantly"
+        );
+        assert_eq!(
+            p.take_excavated(),
+            Some((3, 2)),
+            "the excavated cell is reported"
+        );
     }
 
     #[test]
@@ -418,7 +447,11 @@ mod tests {
         for _ in 0..60 {
             p.update(Vec2::new(1.0, 0.0), &mut map, 0.8, 1.0 / 60.0);
         }
-        assert_eq!(map.tile(3, 2), Tile::Unbreakable, "Super Pick cannot break unbreakable rock");
+        assert_eq!(
+            map.tile(3, 2),
+            Tile::Unbreakable,
+            "Super Pick cannot break unbreakable rock"
+        );
         assert!(p.take_excavated().is_none());
     }
 
@@ -450,13 +483,24 @@ mod tests {
         for _ in 0..20 {
             p.update(Vec2::new(1.0, 0.0), &mut map, 0.8, dt);
         }
-        assert_eq!(p.mining.map(|m| m.target), Some((3, 2)), "mining the east rock");
+        assert_eq!(
+            p.mining.map(|m| m.target),
+            Some((3, 2)),
+            "mining the east rock"
+        );
         let before = p.mining.unwrap().progress;
         assert!(before > 0.0);
         // Keep pushing the SAME direction: mining continues and accrues.
         p.update(Vec2::new(1.0, 0.0), &mut map, 0.8, dt);
-        assert_eq!(p.mining.map(|m| m.target), Some((3, 2)), "same-direction push keeps mining");
-        assert!(p.mining.unwrap().progress > before, "progress keeps accruing");
+        assert_eq!(
+            p.mining.map(|m| m.target),
+            Some((3, 2)),
+            "same-direction push keeps mining"
+        );
+        assert!(
+            p.mining.unwrap().progress > before,
+            "progress keeps accruing"
+        );
         // The player did not move despite the direction press (movement ignored).
         assert_eq!(p.pos, flush_east_of((3, 2)));
     }
@@ -478,7 +522,11 @@ mod tests {
         // (it is still mineable, and a fresh mine starts from zero).
         p.update(Vec2::ZERO, &mut map, 0.8, dt);
         assert!(p.mining.is_none(), "releasing the key cancels mining");
-        assert_eq!(map.tile(3, 2), Tile::Mineable, "rock has no life; still mineable");
+        assert_eq!(
+            map.tile(3, 2),
+            Tile::Mineable,
+            "rock has no life; still mineable"
+        );
     }
 
     #[test]
@@ -516,7 +564,11 @@ mod tests {
         for _ in 0..30 {
             p.update(Vec2::new(1.0, 0.0), &mut map, 0.8, dt);
             if let Some(m) = p.mining {
-                assert!(m.progress < 0.15, "restarted mine resets progress, got {}", m.progress);
+                assert!(
+                    m.progress < 0.15,
+                    "restarted mine resets progress, got {}",
+                    m.progress
+                );
                 restarted = true;
                 break;
             }
@@ -564,7 +616,10 @@ mod tests {
             p.update(Vec2::new(dx as f32, dy as f32), &mut map, 0.8, dt);
 
             let (x, y) = (p.pos.x, p.pos.y);
-            assert!(x.is_finite() && y.is_finite(), "NaN at frame {frame}: ({x},{y})");
+            assert!(
+                x.is_finite() && y.is_finite(),
+                "NaN at frame {frame}: ({x},{y})"
+            );
             // Center must never sit inside a solid cell (rock/wall/border).
             let cx = (x / TILE_SIZE).floor() as i32;
             let cy = (y / TILE_SIZE).floor() as i32;

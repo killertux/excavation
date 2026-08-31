@@ -167,9 +167,7 @@ impl GameConfig {
 
         // Lives.
         if self.lives.cost == 0 {
-            return Err(ConfigError::Validation(
-                "lives.cost must be > 0".into(),
-            ));
+            return Err(ConfigError::Validation("lives.cost must be > 0".into()));
         }
 
         // Consumables.
@@ -212,7 +210,9 @@ fn validate_upgrade(
     effect: f32,
 ) -> Result<(), ConfigError> {
     if *max_level == 0 {
-        return Err(ConfigError::Validation(format!("{name}.max_level must be > 0")));
+        return Err(ConfigError::Validation(format!(
+            "{name}.max_level must be > 0"
+        )));
     }
     if cost_per_level.is_empty() {
         return Err(ConfigError::Validation(format!(
@@ -224,7 +224,7 @@ fn validate_upgrade(
             "{name}.cost_per_level must have at least max_level entries"
         )));
     }
-    if cost_per_level.iter().any(|&c| c == 0) {
+    if cost_per_level.contains(&0) {
         return Err(ConfigError::Validation(format!(
             "{name}.cost_per_level entries must be > 0"
         )));
@@ -308,9 +308,15 @@ mod tests {
         assert_eq!(cfg.beast.base_mining_time, 1.6);
         assert_eq!(cfg.beast.replan_interval, 0.25);
         assert_eq!(cfg.upgrades.walk_speed.max_level, 5);
-        assert_eq!(cfg.upgrades.walk_speed.cost_per_level, vec![50, 100, 200, 400, 800]);
+        assert_eq!(
+            cfg.upgrades.walk_speed.cost_per_level,
+            vec![50, 100, 200, 400, 800]
+        );
         assert_eq!(cfg.upgrades.walk_speed.speed_increase_per_level, 15.0);
-        assert_eq!(cfg.upgrades.mining_speed.mining_time_multiplier_per_level, 0.85);
+        assert_eq!(
+            cfg.upgrades.mining_speed.mining_time_multiplier_per_level,
+            0.85
+        );
         assert_eq!(cfg.lives.cost, 100);
         assert_eq!(cfg.consumables.super_pick.cost, 60);
         assert_eq!(cfg.consumables.super_pick.duration, 3.0);
@@ -325,79 +331,127 @@ mod tests {
     #[test]
     fn rejects_non_positive_player_mining_time() {
         let s = VALID.replace("base_mining_time = 0.8", "base_mining_time = 0.0");
-        assert!(matches!(GameConfig::from_toml(&s), Err(ConfigError::Validation(_))));
+        assert!(matches!(
+            GameConfig::from_toml(&s),
+            Err(ConfigError::Validation(_))
+        ));
     }
 
     #[test]
     fn rejects_non_positive_player_speed() {
         let s = VALID.replace("base_speed = 240.0", "base_speed = -1.0");
-        assert!(matches!(GameConfig::from_toml(&s), Err(ConfigError::Validation(_))));
+        assert!(matches!(
+            GameConfig::from_toml(&s),
+            Err(ConfigError::Validation(_))
+        ));
     }
 
     #[test]
     fn rejects_zero_starting_lives() {
         let s = VALID.replace("starting_lives = 3", "starting_lives = 0");
-        assert!(matches!(GameConfig::from_toml(&s), Err(ConfigError::Validation(_))));
+        assert!(matches!(
+            GameConfig::from_toml(&s),
+            Err(ConfigError::Validation(_))
+        ));
     }
 
     #[test]
     fn rejects_zero_max_lives() {
         let s = VALID.replace("max_lives = 9", "max_lives = 0");
-        assert!(matches!(GameConfig::from_toml(&s), Err(ConfigError::Validation(_))));
+        assert!(matches!(
+            GameConfig::from_toml(&s),
+            Err(ConfigError::Validation(_))
+        ));
     }
 
     #[test]
     fn rejects_max_lives_below_starting_lives() {
         let s = VALID.replace("max_lives = 9", "max_lives = 2");
-        assert!(matches!(GameConfig::from_toml(&s), Err(ConfigError::Validation(_))));
+        assert!(matches!(
+            GameConfig::from_toml(&s),
+            Err(ConfigError::Validation(_))
+        ));
     }
 
     #[test]
     fn rejects_empty_cost_per_level() {
-        let s = VALID.replace("cost_per_level = [50, 100, 200, 400, 800]", "cost_per_level = []");
-        assert!(matches!(GameConfig::from_toml(&s), Err(ConfigError::Validation(_))));
+        let s = VALID.replace(
+            "cost_per_level = [50, 100, 200, 400, 800]",
+            "cost_per_level = []",
+        );
+        assert!(matches!(
+            GameConfig::from_toml(&s),
+            Err(ConfigError::Validation(_))
+        ));
     }
 
     #[test]
     fn rejects_short_cost_per_level() {
-        let s = VALID.replace("cost_per_level = [50, 100, 200, 400, 800]", "cost_per_level = [50, 100]");
-        assert!(matches!(GameConfig::from_toml(&s), Err(ConfigError::Validation(_))));
+        let s = VALID.replace(
+            "cost_per_level = [50, 100, 200, 400, 800]",
+            "cost_per_level = [50, 100]",
+        );
+        assert!(matches!(
+            GameConfig::from_toml(&s),
+            Err(ConfigError::Validation(_))
+        ));
     }
 
     #[test]
     fn rejects_zero_cost_entry() {
-        let s = VALID.replace("cost_per_level = [50, 100, 200, 400, 800]", "cost_per_level = [0, 100, 200, 400, 800]");
-        assert!(matches!(GameConfig::from_toml(&s), Err(ConfigError::Validation(_))));
+        let s = VALID.replace(
+            "cost_per_level = [50, 100, 200, 400, 800]",
+            "cost_per_level = [0, 100, 200, 400, 800]",
+        );
+        assert!(matches!(
+            GameConfig::from_toml(&s),
+            Err(ConfigError::Validation(_))
+        ));
     }
 
     #[test]
     fn rejects_zero_consumable_duration() {
         let s = VALID.replace("duration = 3.0", "duration = 0.0");
-        assert!(matches!(GameConfig::from_toml(&s), Err(ConfigError::Validation(_))));
+        assert!(matches!(
+            GameConfig::from_toml(&s),
+            Err(ConfigError::Validation(_))
+        ));
     }
 
     #[test]
     fn rejects_zero_lives_cost() {
         let s = VALID.replace("cost = 100", "cost = 0");
-        assert!(matches!(GameConfig::from_toml(&s), Err(ConfigError::Validation(_))));
+        assert!(matches!(
+            GameConfig::from_toml(&s),
+            Err(ConfigError::Validation(_))
+        ));
     }
 
     #[test]
     fn rejects_non_positive_beast_speed() {
         let s = VALID.replace("base_speed = 140.0", "base_speed = 0.0");
-        assert!(matches!(GameConfig::from_toml(&s), Err(ConfigError::Validation(_))));
+        assert!(matches!(
+            GameConfig::from_toml(&s),
+            Err(ConfigError::Validation(_))
+        ));
     }
 
     #[test]
     fn rejects_non_positive_beast_mining_time() {
         let s = VALID.replace("base_mining_time = 1.6", "base_mining_time = -2.0");
-        assert!(matches!(GameConfig::from_toml(&s), Err(ConfigError::Validation(_))));
+        assert!(matches!(
+            GameConfig::from_toml(&s),
+            Err(ConfigError::Validation(_))
+        ));
     }
 
     #[test]
     fn rejects_non_positive_replan_interval() {
         let s = VALID.replace("replan_interval = 0.25", "replan_interval = 0.0");
-        assert!(matches!(GameConfig::from_toml(&s), Err(ConfigError::Validation(_))));
+        assert!(matches!(
+            GameConfig::from_toml(&s),
+            Err(ConfigError::Validation(_))
+        ));
     }
 
     #[test]
@@ -406,12 +460,18 @@ mod tests {
             r#"files = ["assets/maps/level01.toml", "assets/maps/level02.toml"]"#,
             "files = []",
         );
-        assert!(matches!(GameConfig::from_toml(&s), Err(ConfigError::Validation(_))));
+        assert!(matches!(
+            GameConfig::from_toml(&s),
+            Err(ConfigError::Validation(_))
+        ));
     }
 
     #[test]
     fn rejects_missing_fields() {
         let s = "[player]\nbase_speed = 120.0\nbase_mining_time = 0.8\n";
-        assert!(matches!(GameConfig::from_toml(s), Err(ConfigError::Toml(_))));
+        assert!(matches!(
+            GameConfig::from_toml(s),
+            Err(ConfigError::Toml(_))
+        ));
     }
 }

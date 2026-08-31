@@ -11,8 +11,8 @@
 //! grid, so detection splits each axis into equal cells and crops each cell.
 //! Sheets that are not a clean grid must supply `SheetSpec::explicit_rects`.
 
-use image::imageops::FilterType;
 use image::RgbaImage;
+use image::imageops::FilterType;
 
 /// Target tile size, in pixels (each axis). Matches the atlas cell size so the
 /// combined atlas is sliced at native resolution (no resampling blur).
@@ -74,7 +74,12 @@ impl SheetSpec {
     /// and the generic slice path; the atlas loader supplies explicit rects.
     #[allow(dead_code)]
     pub fn new(rows: usize, cols: usize, scale_mode: ScaleMode) -> Self {
-        SheetSpec { rows, cols, scale_mode, explicit_rects: None }
+        SheetSpec {
+            rows,
+            cols,
+            scale_mode,
+            explicit_rects: None,
+        }
     }
 }
 
@@ -84,14 +89,24 @@ pub enum LayoutError {
     /// The image contained no opaque content.
     NoContent,
     /// An explicit rect fell outside the image bounds.
-    RectOutOfBounds { index: usize, rect: Rect, width: u32, height: u32 },
+    RectOutOfBounds {
+        index: usize,
+        rect: Rect,
+        width: u32,
+        height: u32,
+    },
 }
 
 impl std::fmt::Display for LayoutError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             LayoutError::NoContent => write!(f, "sheet has no opaque content"),
-            LayoutError::RectOutOfBounds { index, rect, width, height } => {
+            LayoutError::RectOutOfBounds {
+                index,
+                rect,
+                width,
+                height,
+            } => {
                 write!(
                     f,
                     "explicit rect {index} ({},{},{},{}) out of bounds for {width}x{height}",
@@ -195,7 +210,9 @@ mod tests {
     use super::*;
 
     fn load(path: &str) -> RgbaImage {
-        image::open(path).expect("test asset should exist").into_rgba8()
+        image::open(path)
+            .expect("test asset should exist")
+            .into_rgba8()
     }
 
     #[test]
@@ -259,7 +276,7 @@ mod tests {
             cols: 2,
             scale_mode: ScaleMode::Stretch,
             explicit_rects: Some(vec![
-                Rect::new(0, 330, 32, 32), // dirt base
+                Rect::new(0, 330, 32, 32),  // dirt base
                 Rect::new(33, 330, 32, 32), // (unused cell to its right)
             ]),
         };

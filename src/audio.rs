@@ -128,7 +128,11 @@ impl Audio {
     pub async fn load() -> Audio {
         let mut music = Vec::with_capacity(3);
         for m in [Music::Menu, Music::Level, Music::Chase] {
-            music.push(audio::load_sound(m.path()).await.expect("music loop should load"));
+            music.push(
+                audio::load_sound(m.path())
+                    .await
+                    .expect("music loop should load"),
+            );
         }
 
         let mut sfx = Vec::with_capacity(Sfx::ALL.len());
@@ -136,7 +140,15 @@ impl Audio {
             sfx.push(audio::load_sound(s.path()).await.expect("sfx should load"));
         }
 
-        Audio { music, sfx, music_volume: 1.0, sfx_volume: 1.0, current_music: None, dig_playing: false, beast_dig_playing: false }
+        Audio {
+            music,
+            sfx,
+            music_volume: 1.0,
+            sfx_volume: 1.0,
+            current_music: None,
+            dig_playing: false,
+            beast_dig_playing: false,
+        }
     }
 
     /// Start the music loop `m` at the current music volume, stopping any other
@@ -148,13 +160,25 @@ impl Audio {
         if let Some(cur) = self.current_music {
             audio::stop_sound(&self.music[cur as usize]);
         }
-        audio::play_sound(&self.music[m as usize], PlaySoundParams { looped: true, volume: self.music_volume });
+        audio::play_sound(
+            &self.music[m as usize],
+            PlaySoundParams {
+                looped: true,
+                volume: self.music_volume,
+            },
+        );
         self.current_music = Some(m);
     }
 
     /// Play a one-shot effect at the current sfx volume.
     pub fn play(&mut self, s: Sfx) {
-        audio::play_sound(&self.sfx[s as usize], PlaySoundParams { looped: false, volume: self.sfx_volume });
+        audio::play_sound(
+            &self.sfx[s as usize],
+            PlaySoundParams {
+                looped: false,
+                volume: self.sfx_volume,
+            },
+        );
     }
 
     /// Begin a continuous (looped) effect — only valid for the dig loops; other
@@ -169,7 +193,13 @@ impl Audio {
         if already {
             return;
         }
-        audio::play_sound(&self.sfx[s as usize], PlaySoundParams { looped: true, volume: self.sfx_volume });
+        audio::play_sound(
+            &self.sfx[s as usize],
+            PlaySoundParams {
+                looped: true,
+                volume: self.sfx_volume,
+            },
+        );
         match s {
             Sfx::Dig => self.dig_playing = true,
             Sfx::BeastDig => self.beast_dig_playing = true,
@@ -230,7 +260,10 @@ mod tests {
         let mut seen = std::collections::HashSet::new();
         for s in Sfx::ALL {
             let p = s.path();
-            assert!(p.starts_with("assets/audio/sfx/"), "sfx in the sfx dir: {p}");
+            assert!(
+                p.starts_with("assets/audio/sfx/"),
+                "sfx in the sfx dir: {p}"
+            );
             assert!(p.ends_with(".wav"), "sfx is a wav: {p}");
             assert!(seen.insert(p), "sfx path unique: {p}");
         }

@@ -25,10 +25,7 @@ impl Ord for Node {
     fn cmp(&self, other: &Self) -> Ordering {
         // BinaryHeap is a max-heap; reverse `f` so the smallest score pops first,
         // then reverse `seq` so earlier-inserted nodes win ties.
-        other
-            .f
-            .cmp(&self.f)
-            .then_with(|| other.seq.cmp(&self.seq))
+        other.f.cmp(&self.f).then_with(|| other.seq.cmp(&self.seq))
     }
 }
 
@@ -115,7 +112,11 @@ fn reconstruct(came_from: HashMap<(i32, i32), (i32, i32)>, goal: (i32, i32)) -> 
 }
 
 /// Returns true if `goal` is reachable from `start` over passable cells.
-pub fn has_path(start: (i32, i32), goal: (i32, i32), is_passable: impl Fn(i32, i32) -> bool) -> bool {
+pub fn has_path(
+    start: (i32, i32),
+    goal: (i32, i32),
+    is_passable: impl Fn(i32, i32) -> bool,
+) -> bool {
     astar(start, goal, is_passable).is_some()
 }
 
@@ -146,7 +147,10 @@ mod tests {
         for w in path.windows(2) {
             let (a, b) = (w[0], w[1]);
             let dist = (a.0 - b.0).abs() + (a.1 - b.1).abs();
-            assert_eq!(dist, 1, "path must move cardinally one cell at a time: {a:?}->{b:?}");
+            assert_eq!(
+                dist, 1,
+                "path must move cardinally one cell at a time: {a:?}->{b:?}"
+            );
         }
         // It never steps onto the walled part of the column (x==2, y<4).
         assert!(path.iter().all(|&(x, y)| !(x == 2 && y < 4)));
@@ -185,7 +189,10 @@ mod tests {
 
     #[test]
     fn start_equals_goal_returns_single_cell_path() {
-        assert_eq!(astar((2, 2), (2, 2), grid_passable(&[[true; 5]; 5])), Some(vec![(2, 2)]));
+        assert_eq!(
+            astar((2, 2), (2, 2), grid_passable(&[[true; 5]; 5])),
+            Some(vec![(2, 2)])
+        );
     }
 
     #[test]

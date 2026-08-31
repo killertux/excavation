@@ -45,5 +45,9 @@ pub fn collect() -> Input {
     let use_super_pick = is_key_pressed(KeyCode::Key1) || is_key_pressed(KeyCode::Q);
     let use_sticky_smell = is_key_pressed(KeyCode::Key2) || is_key_pressed(KeyCode::E);
 
-    Input { move_: v, use_super_pick, use_sticky_smell }
+    Input {
+        move_: v,
+        use_super_pick,
+        use_sticky_smell,
+    }
 }

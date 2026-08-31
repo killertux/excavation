@@ -66,17 +66,49 @@ fn draw_nine_slice(tex: &Texture2D, rect: Rect, borders: [f32; 4]) {
 
     // Corners (source regions are exactly the border widths).
     draw_slice(tex, Rect::new(0.0, 0.0, bl, bt), Rect::new(x, y, bl, bt));
-    draw_slice(tex, Rect::new(tw - br, 0.0, br, bt), Rect::new(x + w - br, y, br, bt));
-    draw_slice(tex, Rect::new(0.0, th - bb, bl, bb), Rect::new(x, y + h - bb, bl, bb));
-    draw_slice(tex, Rect::new(tw - br, th - bb, br, bb), Rect::new(x + w - br, y + h - bb, br, bb));
+    draw_slice(
+        tex,
+        Rect::new(tw - br, 0.0, br, bt),
+        Rect::new(x + w - br, y, br, bt),
+    );
+    draw_slice(
+        tex,
+        Rect::new(0.0, th - bb, bl, bb),
+        Rect::new(x, y + h - bb, bl, bb),
+    );
+    draw_slice(
+        tex,
+        Rect::new(tw - br, th - bb, br, bb),
+        Rect::new(x + w - br, y + h - bb, br, bb),
+    );
     // Horizontal edges (stretch the source middle horizontally).
-    draw_slice(tex, Rect::new(bl, 0.0, sm, bt), Rect::new(x + bl, y, cm, bt));
-    draw_slice(tex, Rect::new(bl, th - bb, sm, bb), Rect::new(x + bl, y + h - bb, cm, bb));
+    draw_slice(
+        tex,
+        Rect::new(bl, 0.0, sm, bt),
+        Rect::new(x + bl, y, cm, bt),
+    );
+    draw_slice(
+        tex,
+        Rect::new(bl, th - bb, sm, bb),
+        Rect::new(x + bl, y + h - bb, cm, bb),
+    );
     // Vertical edges (stretch the source middle vertically).
-    draw_slice(tex, Rect::new(0.0, bt, bl, sn), Rect::new(x, y + bt, bl, cn));
-    draw_slice(tex, Rect::new(tw - br, bt, br, sn), Rect::new(x + w - br, y + bt, br, cn));
+    draw_slice(
+        tex,
+        Rect::new(0.0, bt, bl, sn),
+        Rect::new(x, y + bt, bl, cn),
+    );
+    draw_slice(
+        tex,
+        Rect::new(tw - br, bt, br, sn),
+        Rect::new(x + w - br, y + bt, br, cn),
+    );
     // Center.
-    draw_slice(tex, Rect::new(bl, bt, sm, sn), Rect::new(x + bl, y + bt, cm, cn));
+    draw_slice(
+        tex,
+        Rect::new(bl, bt, sm, sn),
+        Rect::new(x + bl, y + bt, cm, cn),
+    );
 }
 
 /// Draw a button (a 48×16 sprite whose 9-slice center is 40×8) into `rect`.

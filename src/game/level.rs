@@ -5,6 +5,7 @@
 
 use macroquad::prelude::Vec2;
 
+use super::TILE_SIZE;
 use super::beast::Beast;
 use super::consumables::{ActiveEffect, ConsumableKind};
 use super::generation;
@@ -12,7 +13,6 @@ use super::map::Map;
 use super::movement;
 use super::pickup::{Pickup, PickupKind};
 use super::player::Player;
-use super::TILE_SIZE;
 use crate::audio::Sfx;
 use crate::config::map::MapConfig;
 
@@ -69,7 +69,11 @@ pub struct Level {
 
 impl Level {
     /// Build a level from a map config + generation `seed` + effective tuning.
-    pub fn new(map_cfg: &MapConfig, seed: u64, params: LevelParams) -> Result<Level, generation::GenError> {
+    pub fn new(
+        map_cfg: &MapConfig,
+        seed: u64,
+        params: LevelParams,
+    ) -> Result<Level, generation::GenError> {
         let map = generation::generate(map_cfg, seed)?;
         let player = spawn_player(&map, params.player_speed);
         let beasts = spawn_beasts(
@@ -112,7 +116,10 @@ impl Level {
     /// Activate a consumable effect, replacing any current one. `duration` comes
     /// from `game.toml` (the caller computes it so `Level` stays pure).
     pub fn start_effect(&mut self, kind: ConsumableKind, duration: f32) {
-        self.active_effect = Some(ActiveEffect { kind, remaining: duration });
+        self.active_effect = Some(ActiveEffect {
+            kind,
+            remaining: duration,
+        });
     }
 
     /// Advance the simulation by `dt`. Returns the first significant event.
@@ -130,17 +137,20 @@ impl Level {
         self.sound_events.clear();
         self.tick_effect(dt);
 
-        let super_pick = self.active_effect
+        let super_pick = self
+            .active_effect
             .map(|e| e.kind == ConsumableKind::SuperPick)
             .unwrap_or(false);
         self.player.super_pick = super_pick;
-        self.player.update(move_, &mut self.map, self.player_mining_time, dt);
+        self.player
+            .update(move_, &mut self.map, self.player_mining_time, dt);
         if let Some(cell) = self.player.take_excavated() {
             self.drop_gold(cell);
         }
 
         let player_pos = self.player.pos;
-        let sticky = self.active_effect
+        let sticky = self
+            .active_effect
             .map(|e| e.kind == ConsumableKind::StickySmell)
             .unwrap_or(false);
         // Collect excavated cells, then drop gold after the loop (the beast loop
@@ -195,7 +205,8 @@ impl Level {
         self.sound_events.push(Sfx::RockBreak);
         let (x, y) = (cell.0 as usize, cell.1 as usize);
         if self.map.take_gold(x, y) {
-            self.pickups.push(Pickup::gold(tile_center(cell.0 as f32, cell.1 as f32)));
+            self.pickups
+                .push(Pickup::gold(tile_center(cell.0 as f32, cell.1 as f32)));
         }
     }
 
@@ -227,7 +238,8 @@ impl Level {
     /// attempt's gold is discarded and the elapsed timer/effect reset (the
     /// caller manages lives and banked gold across catches).
     pub fn restart(&mut self, seed: u64) {
-        self.map = generation::generate(&self.map_cfg, seed).expect("restart must generate a valid map");
+        self.map =
+            generation::generate(&self.map_cfg, seed).expect("restart must generate a valid map");
         self.player = spawn_player(&self.map, self.player_speed);
         self.beasts = spawn_beasts(
             &self.map,
@@ -247,7 +259,10 @@ impl Level {
 
 /// World-pixel center of the tile at grid coords `(tx, ty)`.
 fn tile_center(tx: f32, ty: f32) -> Vec2 {
-    Vec2::new(tx * TILE_SIZE + TILE_SIZE / 2.0, ty * TILE_SIZE + TILE_SIZE / 2.0)
+    Vec2::new(
+        tx * TILE_SIZE + TILE_SIZE / 2.0,
+        ty * TILE_SIZE + TILE_SIZE / 2.0,
+    )
 }
 
 /// Spawn the player at the start gap.
@@ -260,7 +275,13 @@ fn spawn_player(map: &Map, speed: f32) -> Player {
 /// stacked with a small per-beast offset so they are visible). `count == 0`
 /// yields no beasts. "More beasts at other places" is deferred to a later
 /// milestone via a `beast_spawns` list in the map TOML.
-fn spawn_beasts(map: &Map, count: u32, speed: f32, mining_time: f32, replan_interval: f32) -> Vec<Beast> {
+fn spawn_beasts(
+    map: &Map,
+    count: u32,
+    speed: f32,
+    mining_time: f32,
+    replan_interval: f32,
+) -> Vec<Beast> {
     let (ex, ey) = map.exit_pos();
     let base = tile_center(ex as f32, ey as f32);
     (0..count)
@@ -287,9 +308,9 @@ fn player_on_exit(player_pos: Vec2, exit: (usize, usize)) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::game::map::Tile;
     use crate::config::game::GameConfig;
     use crate::config::map::MapConfig;
+    use crate::game::map::Tile;
 
     const GAME_TOML: &str = r#"
         [player]
@@ -375,26 +396,34 @@ mod tests {
         assert_eq!(lv.beasts.len(), 2, "beast_count beasts spawn");
         // Player at the start gap.
         let (sx, sy) = lv.map.start_pos();
-        let pc = ((lv.player.pos.x / TILE_SIZE).floor() as i32, (lv.player.pos.y / TILE_SIZE).floor() as i32);
+        let pc = (
+            (lv.player.pos.x / TILE_SIZE).floor() as i32,
+            (lv.player.pos.y / TILE_SIZE).floor() as i32,
+        );
         assert_eq!(pc, (sx as i32, sy as i32));
         // Beasts at the exit gap.
         let (ex, ey) = lv.map.exit_pos();
         for b in &lv.beasts {
-            let bc = ((b.pos.x / TILE_SIZE).floor() as i32, (b.pos.y / TILE_SIZE).floor() as i32);
+            let bc = (
+                (b.pos.x / TILE_SIZE).floor() as i32,
+                (b.pos.y / TILE_SIZE).floor() as i32,
+            );
             assert_eq!(bc, (ex as i32, ey as i32), "beasts spawn at the exit gap");
         }
     }
 
     #[test]
     fn zero_beasts_spawns_none() {
-        let no_beast = map_cfg("
+        let no_beast = map_cfg(
+            "
             width = 30
             height = 20
             unmineable_count = 20
             beast_count = 0
             start = { x = 15, y = 19 }
             exit  = { x = 5,  y = 0 }
-        ");
+        ",
+        );
         let game = game();
         let lv = Level::new(&no_beast, 1, params(&game, &no_beast)).expect("builds");
         assert!(lv.beasts.is_empty());
@@ -459,20 +488,26 @@ mod tests {
 
     #[test]
     fn reaching_exit_completes_the_level() {
-        let no_beast = map_cfg("
+        let no_beast = map_cfg(
+            "
             width = 30
             height = 20
             unmineable_count = 20
             beast_count = 0
             start = { x = 15, y = 19 }
             exit  = { x = 5,  y = 0 }
-        ");
+        ",
+        );
         let game = game();
         let mut lv = Level::new(&no_beast, 12345, params(&game, &no_beast)).expect("builds");
         let (ex, ey) = lv.map.exit_pos();
         lv.player.pos = tile_center(ex as f32, ey as f32);
         let ev = lv.update(Vec2::ZERO, 1.0 / 60.0);
-        assert_eq!(ev, LevelEvent::Completed, "standing on the exit completes the level");
+        assert_eq!(
+            ev,
+            LevelEvent::Completed,
+            "standing on the exit completes the level"
+        );
     }
 
     #[test]
@@ -480,14 +515,16 @@ mod tests {
         // One beast, a real generated map, and a player that stays put. The
         // beast must perceive the exit-adjacent rock, dig it, and keep carving
         // toward the player — proving the AI digs through known mineable rock.
-        let cfg = map_cfg("
+        let cfg = map_cfg(
+            "
             width = 30
             height = 20
             unmineable_count = 20
             beast_count = 1
             start = { x = 15, y = 19 }
             exit  = { x = 5,  y = 0 }
-        ");
+        ",
+        );
         let game = game();
         let mut lv = Level::new(&cfg, 12345, params(&game, &cfg)).expect("builds");
         let (ex, ey) = lv.map.exit_pos();
@@ -532,7 +569,11 @@ mod tests {
         lv.player.pos = pos;
         lv.beasts[0].pos = pos; // a beast sits exactly on the exit cell
         let ev = lv.update(Vec2::ZERO, 1.0 / 60.0);
-        assert_eq!(ev, LevelEvent::Caught, "a guarding beast catches the player first");
+        assert_eq!(
+            ev,
+            LevelEvent::Caught,
+            "a guarding beast catches the player first"
+        );
     }
 
     #[test]
@@ -554,14 +595,20 @@ mod tests {
             }
         }
         assert_eq!(lv.pickups.len(), 1, "a gold rock drops a pickup");
-        assert!(!lv.map.has_gold(2, 3), "the gold was consumed when the rock broke");
+        assert!(
+            !lv.map.has_gold(2, 3),
+            "the gold was consumed when the rock broke"
+        );
 
         // Collect it by moving the player onto the pickup.
         let pickup_pos = lv.pickups[0].pos;
         lv.player.pos = pickup_pos;
         lv.update(Vec2::ZERO, 1.0 / 60.0);
         assert!(lv.pickups.is_empty(), "overlap collects the pickup");
-        assert_eq!(lv.gold_collected, 1, "collected gold is banked in the attempt");
+        assert_eq!(
+            lv.gold_collected, 1,
+            "collected gold is banked in the attempt"
+        );
     }
 
     #[test]
@@ -580,8 +627,16 @@ mod tests {
                 break;
             }
         }
-        assert_eq!(lv.map.tile(2, 3), crate::game::map::Tile::Dirt, "super pick dug the unmineable rock");
-        assert_eq!(lv.pickups.len(), 1, "gold dropped from the dug unmineable rock");
+        assert_eq!(
+            lv.map.tile(2, 3),
+            crate::game::map::Tile::Dirt,
+            "super pick dug the unmineable rock"
+        );
+        assert_eq!(
+            lv.pickups.len(),
+            1,
+            "gold dropped from the dug unmineable rock"
+        );
     }
 
     #[test]
@@ -606,7 +661,10 @@ mod tests {
         assert!(dug, "the rock was mined");
 
         let sounds = lv.drain_sounds();
-        assert!(sounds.contains(&Sfx::RockBreak), "a break must report RockBreak, got {sounds:?}");
+        assert!(
+            sounds.contains(&Sfx::RockBreak),
+            "a break must report RockBreak, got {sounds:?}"
+        );
         // A single break reports it exactly once.
         assert_eq!(sounds.iter().filter(|s| **s == Sfx::RockBreak).count(), 1);
     }
@@ -636,7 +694,10 @@ mod tests {
         lv.update(Vec2::ZERO, 1.0 / 60.0);
 
         let sounds = lv.drain_sounds();
-        assert!(sounds.contains(&Sfx::GoldPickup), "collecting gold must report GoldPickup, got {sounds:?}");
+        assert!(
+            sounds.contains(&Sfx::GoldPickup),
+            "collecting gold must report GoldPickup, got {sounds:?}"
+        );
     }
 
     #[test]
@@ -660,6 +721,9 @@ mod tests {
         assert!(!lv.drain_sounds().is_empty(), "a break happened this frame");
         // …and that the next idle frame reports nothing (the queue is per-frame).
         lv.update(Vec2::ZERO, 1.0 / 60.0);
-        assert!(lv.drain_sounds().is_empty(), "a fresh frame reports no events");
+        assert!(
+            lv.drain_sounds().is_empty(),
+            "a fresh frame reports no events"
+        );
     }
 }

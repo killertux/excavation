@@ -51,6 +51,9 @@ impl Map {
     /// and the given start/exit gaps. Callers replace `tiles` as needed. The
     /// border ring is populated with `Unbreakable`, so a freshly-constructed map
     /// is fully solid.
+    ///
+    /// Used by tests to build a small solid map quickly.
+    #[allow(dead_code)]
     pub fn new(width: usize, height: usize, start: (usize, usize), exit: (usize, usize)) -> Map {
         Map {
             width,
@@ -88,6 +91,7 @@ impl Map {
     }
 
     /// Number of cells occupied by a given tile kind.
+    #[allow(dead_code)]
     pub fn count(&self, tile: Tile) -> usize {
         self.tiles.iter().filter(|&&t| t == tile).count()
     }
@@ -103,6 +107,7 @@ impl Map {
     }
 
     /// Whether the cell at `(x, y)` currently hides gold.
+    #[allow(dead_code)]
     pub fn has_gold(&self, x: usize, y: usize) -> bool {
         self.gold.contains(&(x, y))
     }
@@ -174,6 +179,9 @@ mod tests {
         assert!(!m.has_gold(1, 1));
         assert!(m.take_gold(2, 2), "gold present -> consumed");
         assert!(!m.has_gold(2, 2), "gold gone after take");
-        assert!(!m.take_gold(2, 2), "second take returns false (no double collect)");
+        assert!(
+            !m.take_gold(2, 2),
+            "second take returns false (no double collect)"
+        );
     }
 }

@@ -306,7 +306,10 @@ mod tests {
             exit  = { x = 5, y = 2 }
             structures = [[0, 2]]
         "#;
-        assert!(MapConfig::from_toml(border).is_ok(), "border structure does not consume the interior");
+        assert!(
+            MapConfig::from_toml(border).is_ok(),
+            "border structure does not consume the interior"
+        );
     }
 
     #[test]
@@ -374,20 +377,25 @@ mod tests {
         "#;
         let cfg = MapConfig::from_toml(s).expect("valid map");
         let text = cfg.to_toml().expect("serializes");
-        assert!(!text.contains("seed"), "seed key must be omitted when None:\n{text}");
+        assert!(
+            !text.contains("seed"),
+            "seed key must be omitted when None:\n{text}"
+        );
     }
 
     #[test]
     fn to_toml_is_unchecked_but_from_toml_rejects() {
         // `to_toml` is raw serialization (no validation), so an invalid config
         // still serializes; `from_toml` then rejects it on the read side.
-        let mut cfg = MapConfig::from_toml(r#"
+        let mut cfg = MapConfig::from_toml(
+            r#"
             width = 10
             height = 8
             unmineable_count = 3
             start = { x = 0, y = 4 }
             exit  = { x = 9, y = 4 }
-        "#)
+        "#,
+        )
         .expect("valid map");
         cfg.exit = Pos { x: 5, y: 4 }; // interior, off the border ring
         assert!(cfg.validate().is_err());

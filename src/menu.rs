@@ -68,7 +68,10 @@ pub struct MainMenu {
 
 impl MainMenu {
     pub fn new(has_save: bool) -> Self {
-        MainMenu { selection: 0, has_save }
+        MainMenu {
+            selection: 0,
+            has_save,
+        }
     }
 
     /// The visible menu entries in order (Continue hidden when no save).
@@ -124,7 +127,11 @@ pub struct LevelSelect {
 
 impl LevelSelect {
     pub fn new(level_count: usize, unlocked: usize) -> Self {
-        LevelSelect { selection: 0, level_count, unlocked }
+        LevelSelect {
+            selection: 0,
+            level_count,
+            unlocked,
+        }
     }
 
     /// Whether a 0-based level is locked (its 1-based index exceeds `unlocked`).
@@ -168,7 +175,10 @@ pub struct SettingsScreen {
 
 impl SettingsScreen {
     pub fn new(source: MenuSource) -> Self {
-        SettingsScreen { selection: 0, source }
+        SettingsScreen {
+            selection: 0,
+            source,
+        }
     }
 
     pub fn update(&mut self, input: &MenuInput) -> MenuAction {
@@ -291,7 +301,15 @@ mod tests {
     fn main_menu_hides_continue_without_a_save() {
         let m = MainMenu::new(false);
         let items = m.items();
-        assert_eq!(items, vec![MainMenuItem::Play, MainMenuItem::LevelSelect, MainMenuItem::Settings, MainMenuItem::Quit]);
+        assert_eq!(
+            items,
+            vec![
+                MainMenuItem::Play,
+                MainMenuItem::LevelSelect,
+                MainMenuItem::Settings,
+                MainMenuItem::Quit
+            ]
+        );
     }
 
     #[test]
@@ -299,7 +317,13 @@ mod tests {
         let m = MainMenu::new(true);
         assert_eq!(
             m.items(),
-            vec![MainMenuItem::Play, MainMenuItem::Continue, MainMenuItem::LevelSelect, MainMenuItem::Settings, MainMenuItem::Quit]
+            vec![
+                MainMenuItem::Play,
+                MainMenuItem::Continue,
+                MainMenuItem::LevelSelect,
+                MainMenuItem::Settings,
+                MainMenuItem::Quit
+            ]
         );
     }
 
@@ -323,7 +347,10 @@ mod tests {
     fn main_menu_up_wraps_to_last_item() {
         let mut m = MainMenu::new(false);
         assert_eq!(m.update(&key(|i| i.up = true)), MenuAction::None);
-        assert_eq!(m.selection, 3, "up from Play wraps to Quit (4 items, no save)");
+        assert_eq!(
+            m.selection, 3,
+            "up from Play wraps to Quit (4 items, no save)"
+        );
     }
 
     #[test]
@@ -340,17 +367,27 @@ mod tests {
         // Navigate down once to level 2 (index 1, locked); enter does nothing.
         ls.update(&key(|i| i.down = true));
         assert_eq!(ls.selection, 1);
-        assert_eq!(ls.update(&key(|i| i.enter = true)), MenuAction::None, "locked level cannot be selected");
+        assert_eq!(
+            ls.update(&key(|i| i.enter = true)),
+            MenuAction::None,
+            "locked level cannot be selected"
+        );
     }
 
     #[test]
     fn level_select_start_on_unlocked_level() {
         let mut ls = LevelSelect::new(3, 2);
         assert!(!ls.is_locked(0));
-        assert_eq!(ls.update(&key(|i| i.enter = true)), MenuAction::StartLevel(0));
+        assert_eq!(
+            ls.update(&key(|i| i.enter = true)),
+            MenuAction::StartLevel(0)
+        );
         // Move to level 2 (index 1) and select it.
         ls.update(&key(|i| i.down = true));
-        assert_eq!(ls.update(&key(|i| i.enter = true)), MenuAction::StartLevel(1));
+        assert_eq!(
+            ls.update(&key(|i| i.enter = true)),
+            MenuAction::StartLevel(1)
+        );
     }
 
     #[test]
@@ -363,8 +400,14 @@ mod tests {
     fn settings_left_right_adjust_sliders() {
         let mut s = SettingsScreen::new(MenuSource::Main);
         // Row 0 (music): right -> up, left -> down.
-        assert_eq!(s.update(&key(|i| i.right = true)), MenuAction::VolumeUpMusic);
-        assert_eq!(s.update(&key(|i| i.left = true)), MenuAction::VolumeDownMusic);
+        assert_eq!(
+            s.update(&key(|i| i.right = true)),
+            MenuAction::VolumeUpMusic
+        );
+        assert_eq!(
+            s.update(&key(|i| i.left = true)),
+            MenuAction::VolumeDownMusic
+        );
         // Row 1 (sfx): move down then adjust.
         s.update(&key(|i| i.down = true));
         assert_eq!(s.update(&key(|i| i.right = true)), MenuAction::VolumeUpSfx);
@@ -376,7 +419,10 @@ mod tests {
         let mut s = SettingsScreen::new(MenuSource::Main);
         s.update(&key(|i| i.down = true));
         s.update(&key(|i| i.down = true)); // row 2 = fullscreen
-        assert_eq!(s.update(&key(|i| i.enter = true)), MenuAction::ToggleFullscreen);
+        assert_eq!(
+            s.update(&key(|i| i.enter = true)),
+            MenuAction::ToggleFullscreen
+        );
         s.update(&key(|i| i.down = true)); // row 3 = back
         assert_eq!(s.update(&key(|i| i.enter = true)), MenuAction::Back);
     }
@@ -393,7 +439,10 @@ mod tests {
         // Up wraps from Resume (0) to Quit to Menu (4).
         assert_eq!(p.update(&key(|i| i.up = true)), MenuAction::None);
         assert_eq!(p.selection, 4);
-        assert_eq!(p.update(&key(|i| i.enter = true)), MenuAction::SaveAndQuitToMenu);
+        assert_eq!(
+            p.update(&key(|i| i.enter = true)),
+            MenuAction::SaveAndQuitToMenu
+        );
         // Reset selection; move to Save (2).
         p = Pause::new();
         p.update(&key(|i| i.down = true));

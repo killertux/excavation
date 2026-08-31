@@ -37,7 +37,10 @@ impl fmt::Display for GenError {
         match self {
             GenError::NoPath => write!(f, "no start->exit path could be carved"),
             GenError::NotEnoughCells { needed, available } => {
-                write!(f, "need {needed} unmineable cells but only {available} are available")
+                write!(
+                    f,
+                    "need {needed} unmineable cells but only {available} are available"
+                )
             }
         }
     }
@@ -237,11 +240,12 @@ mod tests {
         for y in 0..map.height as i32 {
             for x in 0..map.width as i32 {
                 if x == 0 || y == 0 || x == map.width as i32 - 1 || y == map.height as i32 - 1 {
-                    let expected = if (x as usize, y as usize) == exit || (x as usize, y as usize) == start {
-                        Tile::Dirt
-                    } else {
-                        Tile::Unbreakable
-                    };
+                    let expected =
+                        if (x as usize, y as usize) == exit || (x as usize, y as usize) == start {
+                            Tile::Dirt
+                        } else {
+                            Tile::Unbreakable
+                        };
                     assert_eq!(map.tile(x, y), expected, "border cell ({x},{y})");
                 }
             }
@@ -275,9 +279,7 @@ mod tests {
             let map = generate(&config(), seed).expect("generates");
             let start = map.start_pos();
             let exit = map.exit_pos();
-            let passable = |x: i32, y: i32| {
-                matches!(map.tile(x, y), Tile::Mineable | Tile::Dirt)
-            };
+            let passable = |x: i32, y: i32| matches!(map.tile(x, y), Tile::Mineable | Tile::Dirt);
             assert!(
                 pathfinding::has_path(
                     (start.0 as i32, start.1 as i32),
@@ -305,11 +307,10 @@ mod tests {
         )
         .expect("valid");
         let map = generate(&cfg, 42).expect("generates despite structure on path");
-        assert!(pathfinding::has_path(
-            (15, 19),
-            (15, 0),
-            |x, y| matches!(map.tile(x, y), Tile::Mineable | Tile::Dirt)
-        ));
+        assert!(pathfinding::has_path((15, 19), (15, 0), |x, y| matches!(
+            map.tile(x, y),
+            Tile::Mineable | Tile::Dirt
+        )));
     }
 
     #[test]
@@ -366,9 +367,17 @@ mod tests {
         let mut cfg = config();
         cfg.gold_count = 12;
         let map = generate(&cfg, 12345).expect("generates");
-        assert_eq!(map.gold.len(), cfg.gold_count as usize, "gold count matches");
+        assert_eq!(
+            map.gold.len(),
+            cfg.gold_count as usize,
+            "gold count matches"
+        );
         for &(x, y) in &map.gold {
-            assert_eq!(map.tile(x as i32, y as i32), Tile::Mineable, "gold is only ever on mineable rock");
+            assert_eq!(
+                map.tile(x as i32, y as i32),
+                Tile::Mineable,
+                "gold is only ever on mineable rock"
+            );
         }
     }
 

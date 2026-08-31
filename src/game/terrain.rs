@@ -53,11 +53,9 @@ pub enum TerrainTile {
 pub fn tile_atlas(center: Tile, n: Tile, e: Tile, s: Tile, w: Tile) -> TerrainTile {
     match center {
         Tile::Mineable | Tile::Unmineable => {
-            TerrainTile::Mineable(mask(n, e, s, w, |t| minable_merges(t)))
+            TerrainTile::Mineable(mask(n, e, s, w, minable_merges))
         }
-        Tile::Unbreakable => {
-            TerrainTile::Unbreakable(mask(n, e, s, w, |t| t == Tile::Unbreakable))
-        }
+        Tile::Unbreakable => TerrainTile::Unbreakable(mask(n, e, s, w, |t| t == Tile::Unbreakable)),
         Tile::Dirt => TerrainTile::Dirt,
     }
 }
@@ -99,6 +97,7 @@ fn mask(n: Tile, e: Tile, s: Tile, w: Tile, same: impl Fn(Tile) -> bool) -> u8 {
 /// - Mineable rock only borders dirt, so it reveals the dirt fill.
 /// - Unbreakable rock borders both mineable and dirt, so it reveals the
 ///   lower-priority material it sits above.
+///
 /// `None` means the tile is fully merged (all sides closed, opaque) — no bevel.
 pub fn underlay(center: Tile, n: Tile, e: Tile, s: Tile, w: Tile) -> Option<TerrainTile> {
     let neighbours = [n, e, s, w];
@@ -139,13 +138,25 @@ mod tests {
         let d = Tile::Dirt;
         // A mineable cell fully surrounded by *mineable-family* rock merges.
         let inner = Tile::Mineable;
-        assert_eq!(tile_atlas(Tile::Mineable, inner, inner, inner, inner), TerrainTile::Mineable(15));
-        assert_eq!(tile_atlas(Tile::Unmineable, inner, inner, inner, inner), TerrainTile::Mineable(15));
+        assert_eq!(
+            tile_atlas(Tile::Mineable, inner, inner, inner, inner),
+            TerrainTile::Mineable(15)
+        );
+        assert_eq!(
+            tile_atlas(Tile::Unmineable, inner, inner, inner, inner),
+            TerrainTile::Mineable(15)
+        );
         // Surrounded by unbreakable rock (higher priority): mineable merges
         // beneath it, so no border is drawn at all.
-        assert_eq!(tile_atlas(Tile::Mineable, ub, ub, ub, ub), TerrainTile::Mineable(15));
+        assert_eq!(
+            tile_atlas(Tile::Mineable, ub, ub, ub, ub),
+            TerrainTile::Mineable(15)
+        );
         // Unbreakable fully surrounded by unbreakable merges.
-        assert_eq!(tile_atlas(Tile::Unbreakable, ub, ub, ub, ub), TerrainTile::Unbreakable(15));
+        assert_eq!(
+            tile_atlas(Tile::Unbreakable, ub, ub, ub, ub),
+            TerrainTile::Unbreakable(15)
+        );
         // Dirt is flat regardless of neighbours.
         assert_eq!(tile_atlas(Tile::Dirt, ub, m, d, m), TerrainTile::Dirt);
     }
@@ -155,8 +166,14 @@ mod tests {
         // Dirt is flat regardless of neighbours.
         let dirt = Tile::Dirt;
         let rock = Tile::Mineable;
-        assert_eq!(tile_atlas(Tile::Dirt, rock, rock, rock, rock), TerrainTile::Dirt);
-        assert_eq!(tile_atlas(Tile::Dirt, dirt, dirt, dirt, dirt), TerrainTile::Dirt);
+        assert_eq!(
+            tile_atlas(Tile::Dirt, rock, rock, rock, rock),
+            TerrainTile::Dirt
+        );
+        assert_eq!(
+            tile_atlas(Tile::Dirt, dirt, dirt, dirt, dirt),
+            TerrainTile::Dirt
+        );
     }
 
     #[test]
@@ -187,9 +204,15 @@ mod tests {
         let ub = Tile::Unbreakable;
         let rk = Tile::Mineable;
         // All four unbreakable -> fully merged.
-        assert_eq!(tile_atlas(Tile::Unbreakable, ub, ub, ub, ub), TerrainTile::Unbreakable(15));
+        assert_eq!(
+            tile_atlas(Tile::Unbreakable, ub, ub, ub, ub),
+            TerrainTile::Unbreakable(15)
+        );
         // Rock neighbour is a different material -> that side needs a border.
-        assert_eq!(tile_atlas(Tile::Unbreakable, rk, ub, ub, ub), TerrainTile::Unbreakable(14));
+        assert_eq!(
+            tile_atlas(Tile::Unbreakable, rk, ub, ub, ub),
+            TerrainTile::Unbreakable(14)
+        );
     }
 
     #[test]
@@ -197,13 +220,25 @@ mod tests {
         let rk = Tile::Mineable;
         let f = Tile::Dirt;
         // Rock above only.
-        assert_eq!(tile_atlas(Tile::Mineable, rk, f, f, f), TerrainTile::Mineable(1));
+        assert_eq!(
+            tile_atlas(Tile::Mineable, rk, f, f, f),
+            TerrainTile::Mineable(1)
+        );
         // Rock to the right only.
-        assert_eq!(tile_atlas(Tile::Mineable, f, rk, f, f), TerrainTile::Mineable(2));
+        assert_eq!(
+            tile_atlas(Tile::Mineable, f, rk, f, f),
+            TerrainTile::Mineable(2)
+        );
         // Rock below only.
-        assert_eq!(tile_atlas(Tile::Mineable, f, f, rk, f), TerrainTile::Mineable(4));
+        assert_eq!(
+            tile_atlas(Tile::Mineable, f, f, rk, f),
+            TerrainTile::Mineable(4)
+        );
         // Rock to the left only.
-        assert_eq!(tile_atlas(Tile::Mineable, f, f, f, rk), TerrainTile::Mineable(8));
+        assert_eq!(
+            tile_atlas(Tile::Mineable, f, f, f, rk),
+            TerrainTile::Mineable(8)
+        );
     }
 
     #[test]
@@ -214,14 +249,26 @@ mod tests {
 
         // Unbreakable -> mineable: the unbreakable borders the mineable
         // (higher-priority side draws the border).
-        assert_eq!(tile_atlas(Tile::Unbreakable, ub, m, ub, ub), TerrainTile::Unbreakable(0b1111 - 2));
+        assert_eq!(
+            tile_atlas(Tile::Unbreakable, ub, m, ub, ub),
+            TerrainTile::Unbreakable(0b1111 - 2)
+        );
         // Mineable -> unbreakable: the mineable does NOT border, it merges under.
-        assert_eq!(tile_atlas(Tile::Mineable, m, ub, m, m), TerrainTile::Mineable(0b1111));
+        assert_eq!(
+            tile_atlas(Tile::Mineable, m, ub, m, m),
+            TerrainTile::Mineable(0b1111)
+        );
 
         // Unbreakable -> dirt: unbreakable borders.
-        assert_eq!(tile_atlas(Tile::Unbreakable, ub, d, ub, ub), TerrainTile::Unbreakable(0b1111 - 2));
+        assert_eq!(
+            tile_atlas(Tile::Unbreakable, ub, d, ub, ub),
+            TerrainTile::Unbreakable(0b1111 - 2)
+        );
         // Mineable -> dirt: mineable borders.
-        assert_eq!(tile_atlas(Tile::Mineable, m, d, m, m), TerrainTile::Mineable(0b1111 - 2));
+        assert_eq!(
+            tile_atlas(Tile::Mineable, m, d, m, m),
+            TerrainTile::Mineable(0b1111 - 2)
+        );
         // Dirt is flat; it never draws a border.
         assert_eq!(tile_atlas(Tile::Dirt, m, ub, d, m), TerrainTile::Dirt);
     }
@@ -232,8 +279,14 @@ mod tests {
         let d = Tile::Dirt;
         // Rock with a dirt neighbour below -> draw dirt beneath so the south
         // bevel shows the ground.
-        assert_eq!(underlay(Tile::Mineable, rk, rk, d, rk), Some(TerrainTile::Dirt));
-        assert_eq!(underlay(Tile::Unbreakable, rk, rk, d, rk), Some(TerrainTile::Dirt));
+        assert_eq!(
+            underlay(Tile::Mineable, rk, rk, d, rk),
+            Some(TerrainTile::Dirt)
+        );
+        assert_eq!(
+            underlay(Tile::Unbreakable, rk, rk, d, rk),
+            Some(TerrainTile::Dirt)
+        );
     }
 
     #[test]
@@ -242,7 +295,10 @@ mod tests {
         let ub = Tile::Unbreakable;
         // Unbreakable rock bordering mineable -> draw mineable beneath so its
         // border bevel blends into the mineable it sits above.
-        assert_eq!(underlay(Tile::Unbreakable, ub, m, ub, ub), Some(TerrainTile::Mineable(15)));
+        assert_eq!(
+            underlay(Tile::Unbreakable, ub, m, ub, ub),
+            Some(TerrainTile::Mineable(15))
+        );
         // Mineable rock bordering unbreakable: mineable now merges flat under
         // the unbreakable (no bevel), so it needs no underlay.
         assert_eq!(underlay(Tile::Mineable, m, m, ub, m), None);

@@ -9,8 +9,8 @@
 
 use macroquad::prelude::Vec2;
 
-use super::map::{Map, Tile};
 use super::TILE_SIZE;
+use super::map::{Map, Tile};
 
 /// An in-progress mine of a single target cell.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -44,7 +44,10 @@ pub fn pushed_target_ex(
     half: f32,
     allow_unmineable: bool,
 ) -> Option<(i32, i32)> {
-    let cell = ((pos.x / TILE_SIZE).floor() as i32, (pos.y / TILE_SIZE).floor() as i32);
+    let cell = (
+        (pos.x / TILE_SIZE).floor() as i32,
+        (pos.y / TILE_SIZE).floor() as i32,
+    );
     let (dx, dy) = dominant_axis(facing);
     if (dx, dy) == (0, 0) {
         return None;
@@ -68,11 +71,7 @@ pub fn pushed_target_ex(
         (edge - boundary).abs() < EPS
     };
 
-    if flush {
-        Some(target)
-    } else {
-        None
-    }
+    if flush { Some(target) } else { None }
 }
 
 /// Whether a tile can be dug: `Mineable` always, `Unmineable` only under Super
@@ -120,7 +119,10 @@ mod tests {
     }
 
     fn center_of(cell: (i32, i32)) -> Vec2 {
-        Vec2::new(cell.0 as f32 * TILE_SIZE + TILE_SIZE / 2.0, cell.1 as f32 * TILE_SIZE + TILE_SIZE / 2.0)
+        Vec2::new(
+            cell.0 as f32 * TILE_SIZE + TILE_SIZE / 2.0,
+            cell.1 as f32 * TILE_SIZE + TILE_SIZE / 2.0,
+        )
     }
 
     /// Position flush against the east edge of a mineable rock at `(3, 2)`
@@ -141,20 +143,35 @@ mod tests {
     fn unmineable_unbreakable_dirt_and_out_of_bounds_are_not_mined() {
         let mut map = open_map();
         // Not flush: player still centred in its own cell.
-        assert_eq!(pushed_target(center_of((2, 2)), Vec2::new(1.0, 0.0), &map, HALF), None);
+        assert_eq!(
+            pushed_target(center_of((2, 2)), Vec2::new(1.0, 0.0), &map, HALF),
+            None
+        );
 
         map.set_tile(3, 2, Tile::Unmineable);
-        assert_eq!(pushed_target(flush_east_of_rock(), Vec2::new(1.0, 0.0), &map, HALF), None);
+        assert_eq!(
+            pushed_target(flush_east_of_rock(), Vec2::new(1.0, 0.0), &map, HALF),
+            None
+        );
 
         map.set_tile(3, 2, Tile::Unbreakable);
-        assert_eq!(pushed_target(flush_east_of_rock(), Vec2::new(1.0, 0.0), &map, HALF), None);
+        assert_eq!(
+            pushed_target(flush_east_of_rock(), Vec2::new(1.0, 0.0), &map, HALF),
+            None
+        );
 
         map.set_tile(3, 2, Tile::Dirt);
-        assert_eq!(pushed_target(flush_east_of_rock(), Vec2::new(1.0, 0.0), &map, HALF), None);
+        assert_eq!(
+            pushed_target(flush_east_of_rock(), Vec2::new(1.0, 0.0), &map, HALF),
+            None
+        );
 
         // Facing off the map at the very edge.
         map.set_tile(1, 0, Tile::Mineable);
-        assert_eq!(pushed_target(center_of((0, 1)), Vec2::new(-1.0, 0.0), &map, HALF), None);
+        assert_eq!(
+            pushed_target(center_of((0, 1)), Vec2::new(-1.0, 0.0), &map, HALF),
+            None
+        );
     }
 
     #[test]
@@ -164,10 +181,16 @@ mod tests {
 
         // Flush east of the rock and pushing east -> targeted.
         let flush = flush_east_of_rock();
-        assert_eq!(pushed_target(flush, Vec2::new(1.0, 0.0), &map, HALF), Some((3, 2)));
+        assert_eq!(
+            pushed_target(flush, Vec2::new(1.0, 0.0), &map, HALF),
+            Some((3, 2))
+        );
 
         // Mid-cell (not touching the rock) pushing east -> nothing to dig.
-        assert_eq!(pushed_target(center_of((2, 2)), Vec2::new(1.0, 0.0), &map, HALF), None);
+        assert_eq!(
+            pushed_target(center_of((2, 2)), Vec2::new(1.0, 0.0), &map, HALF),
+            None
+        );
 
         // Flush east but pushing west (away from the rock), other cell empty.
         assert_eq!(pushed_target(flush, Vec2::new(-1.0, 0.0), &map, HALF), None);
@@ -179,13 +202,19 @@ mod tests {
         map.set_tile(3, 2, Tile::Mineable);
         // Diagonal down-right: dominant axis is east when |x| > |y|.
         let f = Vec2::new(1.0, 0.2).normalize();
-        assert_eq!(pushed_target(flush_east_of_rock(), f, &map, HALF), Some((3, 2)));
+        assert_eq!(
+            pushed_target(flush_east_of_rock(), f, &map, HALF),
+            Some((3, 2))
+        );
     }
 
     #[test]
     fn zero_facing_returns_none() {
         let map = open_map();
-        assert_eq!(pushed_target(center_of((2, 2)), Vec2::ZERO, &map, HALF), None);
+        assert_eq!(
+            pushed_target(center_of((2, 2)), Vec2::ZERO, &map, HALF),
+            None
+        );
     }
 
     #[test]
@@ -203,7 +232,10 @@ mod tests {
         );
         // Unbreakable: never diggable, even under Super Pick.
         map.set_tile(3, 2, Tile::Unbreakable);
-        assert_eq!(pushed_target_ex(pos, Vec2::new(1.0, 0.0), &map, HALF, true), None);
+        assert_eq!(
+            pushed_target_ex(pos, Vec2::new(1.0, 0.0), &map, HALF, true),
+            None
+        );
     }
 
     #[test]

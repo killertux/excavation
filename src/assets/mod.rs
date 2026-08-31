@@ -139,8 +139,20 @@ impl Assets {
             .into_rgba8();
 
         // Terrain: crop the 16 wang tiles (columns 1..16) + dirt base.
-        let unbreakable = load_row(&img, ROCK_UNBREAKABLE_Y, WANG_COLS, 1, layout::ScaleMode::Stretch);
-        let mineable = load_row(&img, ROCK_MINEABLE_Y, WANG_COLS, 1, layout::ScaleMode::Stretch);
+        let unbreakable = load_row(
+            &img,
+            ROCK_UNBREAKABLE_Y,
+            WANG_COLS,
+            1,
+            layout::ScaleMode::Stretch,
+        );
+        let mineable = load_row(
+            &img,
+            ROCK_MINEABLE_Y,
+            WANG_COLS,
+            1,
+            layout::ScaleMode::Stretch,
+        );
         let dirt = load_row(&img, DIRT_Y, 1, 0, layout::ScaleMode::Stretch)
             .into_iter()
             .next()
@@ -168,28 +180,43 @@ impl Assets {
         )
         .try_into()
         .expect("button has 4 states");
-        let ui_panel = load_native_rects(&img, &[layout::Rect::new(0, UI_PANEL_Y, UI_PANEL_W, UI_PANEL_H)])
-            .into_iter()
-            .next()
-            .expect("panel is a single cell");
+        let ui_panel = load_native_rects(
+            &img,
+            &[layout::Rect::new(0, UI_PANEL_Y, UI_PANEL_W, UI_PANEL_H)],
+        )
+        .into_iter()
+        .next()
+        .expect("panel is a single cell");
         let ui_slider = load_native_rects(
             &img,
             &UI_SLIDER_XS.map(|x| layout::Rect::new(x, UI_SLIDER_Y, UI_SLIDER_W, UI_SLIDER_H)),
         )
         .try_into()
         .expect("slider has 4 states");
-        let ui_scroll = load_native_rects(&img, &[layout::Rect::new(0, UI_SCROLL_Y, UI_SCROLL_W, UI_SCROLL_H)])
-            .into_iter()
-            .next()
-            .expect("scroll fill is a single cell");
+        let ui_scroll = load_native_rects(
+            &img,
+            &[layout::Rect::new(0, UI_SCROLL_Y, UI_SCROLL_W, UI_SCROLL_H)],
+        )
+        .into_iter()
+        .next()
+        .expect("scroll fill is a single cell");
 
         // Large standalone UI PNGs, scaled down at load.
-        let title_logo = load_scaled_png("assets/images/ui/title_logo.png", UI_MAX_W, UI_MAX_H).await;
-        let menu_background =
-            load_scaled_png("assets/images/backgrounds/menu_background.png", UI_MAX_W, UI_MAX_H).await;
+        let title_logo =
+            load_scaled_png("assets/images/ui/title_logo.png", UI_MAX_W, UI_MAX_H).await;
+        let menu_background = load_scaled_png(
+            "assets/images/backgrounds/menu_background.png",
+            UI_MAX_W,
+            UI_MAX_H,
+        )
+        .await;
 
         Assets {
-            terrain: RockAtlas { unbreakable, mineable, dirt },
+            terrain: RockAtlas {
+                unbreakable,
+                mineable,
+                dirt,
+            },
             player,
             beast,
             burst,
@@ -311,7 +338,9 @@ async fn load_scaled_png(path: &str, max_w: u32, max_h: u32) -> Texture2D {
         .expect("png should be a valid image")
         .into_rgba8();
     let (w, h) = img.dimensions();
-    let scale = (max_w as f32 / w as f32).min(max_h as f32 / h as f32).min(1.0);
+    let scale = (max_w as f32 / w as f32)
+        .min(max_h as f32 / h as f32)
+        .min(1.0);
     let nw = ((w as f32 * scale).round() as u32).max(1);
     let nh = ((h as f32 * scale).round() as u32).max(1);
     let resized = image::imageops::resize(&img, nw, nh, image::imageops::FilterType::Lanczos3);
@@ -358,8 +387,17 @@ fn load_character(
 }
 
 /// Crop each rect to a 16×16 RGBA buffer and upload as a GPU texture.
-fn slice_rects(img: &image::RgbaImage, rects: Vec<layout::Rect>, scale_mode: layout::ScaleMode) -> Vec<Texture2D> {
-    let spec = layout::SheetSpec { rows: 1, cols: rects.len(), scale_mode, explicit_rects: Some(rects) };
+fn slice_rects(
+    img: &image::RgbaImage,
+    rects: Vec<layout::Rect>,
+    scale_mode: layout::ScaleMode,
+) -> Vec<Texture2D> {
+    let spec = layout::SheetSpec {
+        rows: 1,
+        cols: rects.len(),
+        scale_mode,
+        explicit_rects: Some(rects),
+    };
     let frames = layout::detect_and_resize(img, &spec).expect("atlas frames should slice");
     frames.iter().map(texture_from_frame).collect()
 }
@@ -387,7 +425,10 @@ mod tests {
         let (w, _h) = (560u32, 694u32);
         let col = 16;
         let x = col as u32 * PITCH;
-        assert!(x + CELL <= w, "wang col {col} runs off sheet: x={x}+{CELL}>={w}");
+        assert!(
+            x + CELL <= w,
+            "wang col {col} runs off sheet: x={x}+{CELL}>={w}"
+        );
         assert_eq!(x, 528);
     }
 

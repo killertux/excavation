@@ -62,7 +62,12 @@ mod storage {
     unsafe extern "C" {
         fn exc_save_set(key_ptr: *const u8, key_len: usize, val_ptr: *const u8, val_len: usize);
         fn exc_save_get_len(key_ptr: *const u8, key_len: usize) -> i32;
-        fn exc_save_get_into(key_ptr: *const u8, key_len: usize, out_ptr: *mut u8, out_cap: usize) -> i32;
+        fn exc_save_get_into(
+            key_ptr: *const u8,
+            key_len: usize,
+            out_ptr: *mut u8,
+            out_cap: usize,
+        ) -> i32;
         fn exc_save_remove(key_ptr: *const u8, key_len: usize);
     }
 
@@ -210,7 +215,11 @@ mod tests {
     }
 
     fn no_input() -> Input {
-        Input { move_: Default::default(), use_super_pick: false, use_sticky_smell: false }
+        Input {
+            move_: Default::default(),
+            use_super_pick: false,
+            use_sticky_smell: false,
+        }
     }
 
     fn sample_run() -> Run {
@@ -233,7 +242,11 @@ mod tests {
     #[test]
     fn save_data_round_trips_through_json() {
         let r = sample_run();
-        let save = SaveData { version: SAVE_VERSION, run: r.snapshot(), settings: Settings::default() };
+        let save = SaveData {
+            version: SAVE_VERSION,
+            run: r.snapshot(),
+            settings: Settings::default(),
+        };
 
         let json = to_json(&save);
         let back = from_json(&json).expect("valid save parses");
@@ -243,19 +256,35 @@ mod tests {
     #[test]
     fn full_round_trip_resumes_the_run() {
         let r = sample_run();
-        let save = SaveData { version: SAVE_VERSION, run: r.snapshot(), settings: Settings::default() };
+        let save = SaveData {
+            version: SAVE_VERSION,
+            run: r.snapshot(),
+            settings: Settings::default(),
+        };
         let json = to_json(&save);
         let loaded = from_json(&json).expect("parses");
-        let restored = Run::resume(game(), vec![map_cfg(1, 1), map_cfg(0, 1)], loaded.run).expect("resumes");
-        assert_eq!(restored.snapshot(), r.snapshot(), "a loaded run reproduces the original state");
+        let restored =
+            Run::resume(game(), vec![map_cfg(1, 1), map_cfg(0, 1)], loaded.run).expect("resumes");
+        assert_eq!(
+            restored.snapshot(),
+            r.snapshot(),
+            "a loaded run reproduces the original state"
+        );
     }
 
     #[test]
     fn rejects_unknown_version_as_no_save() {
         let r = sample_run();
-        let save = SaveData { version: SAVE_VERSION + 1, run: r.snapshot(), settings: Settings::default() };
+        let save = SaveData {
+            version: SAVE_VERSION + 1,
+            run: r.snapshot(),
+            settings: Settings::default(),
+        };
         let json = to_json(&save);
-        assert!(from_json(&json).is_none(), "a future-version save is treated as absent");
+        assert!(
+            from_json(&json).is_none(),
+            "a future-version save is treated as absent"
+        );
     }
 
     #[test]
@@ -269,7 +298,11 @@ mod tests {
     fn desktop_file_round_trips() {
         let path = "excavation_test_save.json";
         let r = sample_run();
-        let save = SaveData { version: SAVE_VERSION, run: r.snapshot(), settings: Settings::default() };
+        let save = SaveData {
+            version: SAVE_VERSION,
+            run: r.snapshot(),
+            settings: Settings::default(),
+        };
         save_file(path, &save);
         let loaded = load_file(path).expect("file save loads");
         assert_eq!(loaded, save);
@@ -285,10 +318,18 @@ mod tests {
         let data = SaveData {
             version: SAVE_VERSION,
             run: r.snapshot(),
-            settings: Settings { music_volume: 0.5, sfx_volume: 0.8, fullscreen: true },
+            settings: Settings {
+                music_volume: 0.5,
+                sfx_volume: 0.8,
+                fullscreen: true,
+            },
         };
         crate::save::save(&data);
-        assert_eq!(crate::save::load(), Some(data), "saved then loaded back unchanged");
+        assert_eq!(
+            crate::save::load(),
+            Some(data),
+            "saved then loaded back unchanged"
+        );
         crate::save::clear();
         assert!(crate::save::load().is_none(), "cleared -> no save again");
     }
@@ -303,15 +344,27 @@ mod tests {
         let (ex, ey) = r.level.map.exit_pos();
         r.level.player.pos = center_of(ex, ey);
         let ev = r.update(no_input(), 1.0 / 60.0);
-        assert!(matches!(ev, crate::game::run::RunEvent::LevelCompleted { .. }));
+        assert!(matches!(
+            ev,
+            crate::game::run::RunEvent::LevelCompleted { .. }
+        ));
 
         let snap = r.snapshot();
         assert_eq!(snap.gold, 8);
         assert_eq!(snap.unlocked, 2, "completing level 1 unlocks level 2");
 
-        let save = SaveData { version: SAVE_VERSION, run: snap, settings: Settings::default() };
+        let save = SaveData {
+            version: SAVE_VERSION,
+            run: snap,
+            settings: Settings::default(),
+        };
         let loaded = from_json(&to_json(&save)).expect("parses");
-        let restored = Run::resume(game(), vec![map_cfg(1, 1), map_cfg(0, 1)], loaded.run).expect("resumes");
-        assert_eq!(restored.snapshot(), snap, "restored run equals the snapshotted one");
+        let restored =
+            Run::resume(game(), vec![map_cfg(1, 1), map_cfg(0, 1)], loaded.run).expect("resumes");
+        assert_eq!(
+            restored.snapshot(),
+            snap,
+            "restored run equals the snapshotted one"
+        );
     }
 }

@@ -15,7 +15,10 @@ pub struct Camera {
 
 impl Camera {
     pub fn new(zoom: f32) -> Self {
-        Camera { pos: Vec2::ZERO, zoom }
+        Camera {
+            pos: Vec2::ZERO,
+            zoom,
+        }
     }
 
     /// Center on `target` (world px) and clamp to a map of `map_w`×`map_h` world
@@ -48,11 +51,19 @@ impl Camera {
     }
 
     /// Map a world-space point to screen-space (relative to the view origin).
+    ///
+    /// Used by the camera tests (and available for input/UI coordinate work),
+    /// but not yet called from the runtime binary.
+    #[allow(dead_code)]
     pub fn world_to_screen(&self, p: Vec2) -> Vec2 {
         (p - self.pos) * self.zoom
     }
 
     /// Map a screen-space point (relative to the view origin) to world-space.
+    ///
+    /// Used by the camera tests (and available for input/UI coordinate work),
+    /// but not yet called from the runtime binary.
+    #[allow(dead_code)]
     pub fn screen_to_world(&self, p: Vec2) -> Vec2 {
         p / self.zoom + self.pos
     }
@@ -73,7 +84,12 @@ mod tests {
         cam.follow(Vec2::new(500.0, 400.0), 1000.0, 1000.0, 1280.0, 720.0);
         // Visible world size = 640x360; centered on (500,400).
         let expected = Vec2::new(500.0 - 640.0 / 2.0, 400.0 - 360.0 / 2.0);
-        assert!(approx(cam.pos, expected), "got {:?} expected {:?}", cam.pos, expected);
+        assert!(
+            approx(cam.pos, expected),
+            "got {:?} expected {:?}",
+            cam.pos,
+            expected
+        );
         // The player maps to the screen center.
         let screen = cam.world_to_screen(Vec2::new(500.0, 400.0));
         assert!(approx(screen, Vec2::new(640.0, 360.0)));
@@ -97,7 +113,10 @@ mod tests {
         let mut cam = Camera::new(2.0);
         // Map is 200x200 world px; view is 640x360 world px (larger).
         cam.follow(Vec2::new(100.0, 100.0), 200.0, 200.0, 1280.0, 720.0);
-        assert_eq!(cam.pos, Vec2::new((200.0 - 640.0) / 2.0, (200.0 - 360.0) / 2.0));
+        assert_eq!(
+            cam.pos,
+            Vec2::new((200.0 - 640.0) / 2.0, (200.0 - 360.0) / 2.0)
+        );
     }
 
     #[test]

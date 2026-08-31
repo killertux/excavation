@@ -29,11 +29,11 @@
 use macroquad::prelude::*;
 
 use crate::assets::Assets;
-use crate::config::map::{MapConfig, Pos};
 use crate::config::ConfigError;
+use crate::config::map::{MapConfig, Pos};
+use crate::game::TILE_SIZE;
 use crate::game::map::Tile;
 use crate::game::terrain;
-use crate::game::TILE_SIZE;
 
 /// Smallest map dimension the editor allows (so `width - 2` interior is non-empty).
 const MIN_DIM: usize = 5;
@@ -328,15 +328,18 @@ impl EditorModel {
     pub fn adjust_field(&mut self, delta: i32) {
         match self.current_field() {
             Field::Width => {
-                let nw = (self.cfg.width as i64 + delta as i64).clamp(MIN_DIM as i64, MAX_DIM as i64) as usize;
+                let nw = (self.cfg.width as i64 + delta as i64)
+                    .clamp(MIN_DIM as i64, MAX_DIM as i64) as usize;
                 self.set_dimensions(nw, self.cfg.height);
             }
             Field::Height => {
-                let nh = (self.cfg.height as i64 + delta as i64).clamp(MIN_DIM as i64, MAX_DIM as i64) as usize;
+                let nh = (self.cfg.height as i64 + delta as i64)
+                    .clamp(MIN_DIM as i64, MAX_DIM as i64) as usize;
                 self.set_dimensions(self.cfg.width, nh);
             }
             Field::Unmineable => {
-                self.cfg.unmineable_count = (self.cfg.unmineable_count as i64 + delta as i64).max(0) as usize;
+                self.cfg.unmineable_count =
+                    (self.cfg.unmineable_count as i64 + delta as i64).max(0) as usize;
             }
             Field::Gold => {
                 self.cfg.gold_count = (self.cfg.gold_count as i64 + delta as i64).max(0) as u32;
@@ -345,12 +348,14 @@ impl EditorModel {
                 self.cfg.beast_count = (self.cfg.beast_count as i64 + delta as i64).max(0) as u32;
             }
             Field::Speed => {
-                self.cfg.beast_speed_multiplier =
-                    (self.cfg.beast_speed_multiplier + delta as f32 * MULT_STEP).clamp(MIN_MULT, MAX_MULT);
+                self.cfg.beast_speed_multiplier = (self.cfg.beast_speed_multiplier
+                    + delta as f32 * MULT_STEP)
+                    .clamp(MIN_MULT, MAX_MULT);
             }
             Field::Mining => {
-                self.cfg.beast_mining_time_multiplier =
-                    (self.cfg.beast_mining_time_multiplier + delta as f32 * MULT_STEP).clamp(MIN_MULT, MAX_MULT);
+                self.cfg.beast_mining_time_multiplier = (self.cfg.beast_mining_time_multiplier
+                    + delta as f32 * MULT_STEP)
+                    .clamp(MIN_MULT, MAX_MULT);
             }
             Field::Seed => {
                 let cur = self.cfg.seed.unwrap_or(0);
@@ -522,7 +527,10 @@ impl EditorModel {
 fn clamp_cursor(cfg: &MapConfig, (x, y): (i32, i32)) -> (i32, i32) {
     let w = cfg.width as i32;
     let h = cfg.height as i32;
-    (x.clamp(0, w.saturating_sub(1)), y.clamp(0, h.saturating_sub(1)))
+    (
+        x.clamp(0, w.saturating_sub(1)),
+        y.clamp(0, h.saturating_sub(1)),
+    )
 }
 
 /// The rendering wrapper: model + terrain sprites + the `--editor` base path.
@@ -535,7 +543,12 @@ pub struct Editor {
 impl Editor {
     /// Build the editor. `base_path` is the `--editor <path>` argument (if any);
     /// it becomes the save/load target, else `assets/maps/<file_name>.toml`.
-    pub fn new(cfg: MapConfig, file_name: &str, base_path: Option<String>, assets: Assets) -> Editor {
+    pub fn new(
+        cfg: MapConfig,
+        file_name: &str,
+        base_path: Option<String>,
+        assets: Assets,
+    ) -> Editor {
         Editor {
             model: EditorModel::new(cfg, file_name),
             assets,
@@ -641,7 +654,10 @@ impl Editor {
     }
 
     fn update_filename(&mut self) -> bool {
-        if is_key_pressed(KeyCode::Escape) || is_key_pressed(KeyCode::Tab) || is_key_pressed(KeyCode::Enter) {
+        if is_key_pressed(KeyCode::Escape)
+            || is_key_pressed(KeyCode::Tab)
+            || is_key_pressed(KeyCode::Enter)
+        {
             self.model.set_mode(Mode::Grid);
             return false;
         }
@@ -707,7 +723,9 @@ impl Editor {
         let region_h = view_h * 0.9;
         let gw = self.model.cfg.width as f32;
         let gh = self.model.cfg.height as f32;
-        let scale = (region_w / (gw * TILE_SIZE)).min(region_h / (gh * TILE_SIZE)).min(1.5);
+        let scale = (region_w / (gw * TILE_SIZE))
+            .min(region_h / (gh * TILE_SIZE))
+            .min(1.5);
         (TILE_SIZE * scale).max(4.0)
     }
 
@@ -737,8 +755,20 @@ impl Editor {
         let sy = cfg.start.y as f32;
         let ex = cfg.exit.x as f32;
         let ey = cfg.exit.y as f32;
-        draw_rectangle(ox + sx * cell, oy + sy * cell, cell, cell, Color::new(0.2, 1.0, 0.2, 0.45));
-        draw_rectangle(ox + ex * cell, oy + ey * cell, cell, cell, Color::new(1.0, 0.3, 0.3, 0.45));
+        draw_rectangle(
+            ox + sx * cell,
+            oy + sy * cell,
+            cell,
+            cell,
+            Color::new(0.2, 1.0, 0.2, 0.45),
+        );
+        draw_rectangle(
+            ox + ex * cell,
+            oy + ey * cell,
+            cell,
+            cell,
+            Color::new(1.0, 0.3, 0.3, 0.45),
+        );
 
         // Cursor highlight.
         let (cx, cy) = self.model.cursor();
@@ -799,7 +829,12 @@ impl Editor {
         y += 10.0;
 
         y = self.info_line(x, y, "File", &self.model.filename());
-        y = self.info_line(x, y, "Path", &self.model.save_path(self.base_path.as_deref()));
+        y = self.info_line(
+            x,
+            y,
+            "Path",
+            &self.model.save_path(self.base_path.as_deref()),
+        );
         y += 12.0;
 
         match self.model.status() {
@@ -830,7 +865,10 @@ impl Editor {
             Field::Beast => cfg.beast_count.to_string(),
             Field::Speed => format!("{:.1}", cfg.beast_speed_multiplier),
             Field::Mining => format!("{:.1}", cfg.beast_mining_time_multiplier),
-            Field::Seed => cfg.seed.map(|s| s.to_string()).unwrap_or_else(|| "random".to_string()),
+            Field::Seed => cfg
+                .seed
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| "random".to_string()),
         }
     }
 
@@ -898,10 +936,17 @@ mod tests {
         // Move to a known interior cell (y=10 is strictly inside a 20-tall map).
         let interior = (10, 10);
         m.move_cursor(interior.0 - m.cursor().0, interior.1 - m.cursor().1);
-        assert!(!is_border(m.cursor().0, m.cursor().1, 30, 20), "cursor should be interior");
+        assert!(
+            !is_border(m.cursor().0, m.cursor().1, 30, 20),
+            "cursor should be interior"
+        );
         let cfg_before = m.cfg().start;
         m.apply_tool();
-        assert_eq!(m.cfg().start, cfg_before, "start must not move onto an interior cell");
+        assert_eq!(
+            m.cfg().start,
+            cfg_before,
+            "start must not move onto an interior cell"
+        );
     }
 
     #[test]
@@ -939,14 +984,20 @@ mod tests {
         // Try to place on the border ring (0,0). Must be ignored.
         m.move_cursor(-100, -100);
         m.apply_tool();
-        assert!(m.cfg().structures.is_empty(), "border placement must be ignored");
+        assert!(
+            m.cfg().structures.is_empty(),
+            "border placement must be ignored"
+        );
 
         // Try to place on the exit gap. Must be ignored.
         let exit = m.cfg().exit;
         let cursor = m.cursor();
         m.move_cursor(exit.x - cursor.0, exit.y - cursor.1);
         m.apply_tool();
-        assert!(m.cfg().structures.is_empty(), "start/exit placement must be ignored");
+        assert!(
+            m.cfg().structures.is_empty(),
+            "start/exit placement must be ignored"
+        );
     }
 
     #[test]
@@ -971,7 +1022,11 @@ mod tests {
         assert_ne!(cfg.start, cfg.exit);
         // All structures interior (1..6 on both axes).
         for s in &cfg.structures {
-            assert!(s[0] >= 1 && s[0] <= 6 && s[1] >= 1 && s[1] <= 6, "structure {:?} must be interior", s);
+            assert!(
+                s[0] >= 1 && s[0] <= 6 && s[1] >= 1 && s[1] <= 6,
+                "structure {:?} must be interior",
+                s
+            );
         }
         // The resized map must still be a valid config.
         cfg.validate().expect("resized config is valid");
@@ -991,7 +1046,10 @@ mod tests {
         assert_eq!(m.cfg().height, 20, "height untouched");
 
         // unmineable_count can't go negative.
-        m.field_index = Field::ALL.iter().position(|f| *f == Field::Unmineable).unwrap();
+        m.field_index = Field::ALL
+            .iter()
+            .position(|f| *f == Field::Unmineable)
+            .unwrap();
         for _ in 0..100 {
             m.adjust_field(-1);
         }
@@ -1059,7 +1117,10 @@ mod tests {
     fn serialize_checked_rejects_invalid_config() {
         let mut m = base_model();
         m.cfg.exit = Pos { x: 5, y: 4 };
-        assert!(matches!(m.serialize_checked(), Err(ConfigError::Validation(_))));
+        assert!(matches!(
+            m.serialize_checked(),
+            Err(ConfigError::Validation(_))
+        ));
     }
 
     #[test]
@@ -1153,6 +1214,9 @@ mod tests {
         }
         let text = m.serialize_checked().expect("valid");
         let cfg = MapConfig::from_toml(&text).expect("parse back");
-        assert!(generation::generate(&cfg, cfg.seed.unwrap_or(0)).is_ok(), "saved map must generate");
+        assert!(
+            generation::generate(&cfg, cfg.seed.unwrap_or(0)).is_ok(),
+            "saved map must generate"
+        );
     }
 }

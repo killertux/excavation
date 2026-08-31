@@ -128,7 +128,9 @@ async fn main() {
         #[cfg(not(target_arch = "wasm32"))]
         {
             frame += 1;
-            if frame == 3 && let Some(path) = &screenshot {
+            if frame == 3
+                && let Some(path) = &screenshot
+            {
                 let fb = render_target(screen_width() as u32, screen_height() as u32);
                 app.render_to(&fb, screen_width() as u32, screen_height() as u32);
                 fb.texture.get_texture_data().export_png(path);
@@ -175,7 +177,9 @@ async fn run_editor_loop(editor: &mut editor::Editor, screenshot: Option<String>
 #[cfg(not(target_arch = "wasm32"))]
 fn load_editor_config(path: &str) -> (config::map::MapConfig, Option<String>) {
     let mut err = None;
-    let cfg = if !path.is_empty() && let Ok(text) = std::fs::read_to_string(path) {
+    let cfg = if !path.is_empty()
+        && let Ok(text) = std::fs::read_to_string(path)
+    {
         match config::map::MapConfig::from_toml(&text) {
             Ok(cfg) => cfg,
             Err(e) => {

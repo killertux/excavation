@@ -20,10 +20,10 @@ use std::collections::HashSet;
 
 use macroquad::prelude::Vec2;
 
+use super::TILE_SIZE;
 use super::map::{Map, Tile};
 use super::movement;
 use super::pathfinding;
-use super::TILE_SIZE;
 use crate::assets::ids::{BeastMotion, Direction, WALK_FRAMES};
 
 /// Seconds per beast walk-frame (four-frame cycle, per atlas timing).
@@ -223,8 +223,8 @@ impl Beast {
         };
 
         let cell = self.cell();
-        let target_rock = map.tile(target.0, target.1) == Tile::Mineable
-            && self.known_mineable.contains(&target);
+        let target_rock =
+            map.tile(target.0, target.1) == Tile::Mineable && self.known_mineable.contains(&target);
 
         if cell == target {
             // Stepped into an open (dirt) cell; head for the next node.
@@ -238,7 +238,10 @@ impl Beast {
 
         if target_rock && blocked && adjacent(cell, target) {
             // Flush against a known diggable rock: start digging it.
-            self.state = BeastState::Dig { target, progress: 0.0 };
+            self.state = BeastState::Dig {
+                target,
+                progress: 0.0,
+            };
         } else if blocked {
             // Hit an unmineable/unknown slab the plan couldn't foresee: re-plan
             // soon rather than grind against it.
@@ -283,7 +286,10 @@ impl Beast {
     fn wander(&mut self, map: &mut Map, dt: f32) {
         // Begin wandering from any other state (discarding a stale dig/plan).
         if !matches!(self.state, BeastState::Wander { .. }) {
-            self.state = BeastState::Wander { dir: Vec2::ZERO, timer: 0.0 };
+            self.state = BeastState::Wander {
+                dir: Vec2::ZERO,
+                timer: 0.0,
+            };
         }
         let (dir, timer) = match self.state {
             BeastState::Wander { dir, timer } => (dir, timer),
@@ -293,9 +299,15 @@ impl Beast {
         let blocked = self.step_dir(dir, map, dt);
         if new_timer <= 0.0 || blocked || dir == Vec2::ZERO {
             let nd = self.random_cardinal();
-            self.state = BeastState::Wander { dir: nd, timer: WANDER_RETIME };
+            self.state = BeastState::Wander {
+                dir: nd,
+                timer: WANDER_RETIME,
+            };
         } else {
-            self.state = BeastState::Wander { dir, timer: new_timer };
+            self.state = BeastState::Wander {
+                dir,
+                timer: new_timer,
+            };
         }
     }
 
@@ -463,11 +475,17 @@ fn manhattan(a: (i32, i32), b: (i32, i32)) -> i32 {
 }
 
 fn cell_center(c: (i32, i32)) -> Vec2 {
-    Vec2::new(c.0 as f32 * TILE_SIZE + TILE_SIZE / 2.0, c.1 as f32 * TILE_SIZE + TILE_SIZE / 2.0)
+    Vec2::new(
+        c.0 as f32 * TILE_SIZE + TILE_SIZE / 2.0,
+        c.1 as f32 * TILE_SIZE + TILE_SIZE / 2.0,
+    )
 }
 
 fn cell_of(pos: Vec2) -> (i32, i32) {
-    ((pos.x / TILE_SIZE).floor() as i32, (pos.y / TILE_SIZE).floor() as i32)
+    (
+        (pos.x / TILE_SIZE).floor() as i32,
+        (pos.y / TILE_SIZE).floor() as i32,
+    )
 }
 
 #[cfg(test)]
@@ -485,7 +503,10 @@ mod tests {
     }
 
     fn center_of(c: (i32, i32)) -> Vec2 {
-        Vec2::new(c.0 as f32 * TILE_SIZE + TILE_SIZE / 2.0, c.1 as f32 * TILE_SIZE + TILE_SIZE / 2.0)
+        Vec2::new(
+            c.0 as f32 * TILE_SIZE + TILE_SIZE / 2.0,
+            c.1 as f32 * TILE_SIZE + TILE_SIZE / 2.0,
+        )
     }
 
     /// A beast in the old M2 configuration (walk speed only): helpers here use
@@ -503,7 +524,10 @@ mod tests {
         b.update(player, &mut map, 1.0 / 60.0);
         assert!(b.pos.x > start.x, "beast should move right toward player");
         assert!(b.pos.x <= player.x);
-        assert!(matches!(b.motion, BeastMotion::Walk(_)), "beast should be walking");
+        assert!(
+            matches!(b.motion, BeastMotion::Walk(_)),
+            "beast should be walking"
+        );
     }
 
     #[test]
@@ -539,10 +563,22 @@ mod tests {
         map.set_tile(1, 2, Tile::Unbreakable);
         let mut b = beast_at((2, 2));
         b.perceive(&map);
-        assert!(b.known_mineable.contains(&(2, 1)), "adjacent mineable is learned");
-        assert!(!b.known_mineable.contains(&(2, 3)), "unmineable is never learned");
-        assert!(!b.known_mineable.contains(&(1, 2)), "unbreakable is never learned");
-        assert!(!b.known_mineable.contains(&(2, 2)), "own cell is not perceived");
+        assert!(
+            b.known_mineable.contains(&(2, 1)),
+            "adjacent mineable is learned"
+        );
+        assert!(
+            !b.known_mineable.contains(&(2, 3)),
+            "unmineable is never learned"
+        );
+        assert!(
+            !b.known_mineable.contains(&(1, 2)),
+            "unbreakable is never learned"
+        );
+        assert!(
+            !b.known_mineable.contains(&(2, 2)),
+            "own cell is not perceived"
+        );
     }
 
     #[test]
@@ -555,7 +591,10 @@ mod tests {
         assert!(passable(2, 2, &map, &known), "open floor is passable");
         assert!(passable(2, 1, &map, &known), "known mineable is passable");
         assert!(!passable(2, 3, &map, &known), "unmineable is blocked");
-        assert!(!passable(0, 0, &map, &known), "border unbreakable is blocked");
+        assert!(
+            !passable(0, 0, &map, &known),
+            "border unbreakable is blocked"
+        );
         assert!(!passable(3, 1, &map, &known), "unperceived slab is blocked");
     }
 
@@ -563,8 +602,16 @@ mod tests {
     fn straight_line_charge_when_clear() {
         let map = open_map();
         let known = HashSet::new();
-        assert_eq!(decide(&map, &known, (1, 2), (3, 2)), Plan::Charge, "clear horizontal");
-        assert_eq!(decide(&map, &known, (2, 1), (2, 3)), Plan::Charge, "clear vertical");
+        assert_eq!(
+            decide(&map, &known, (1, 2), (3, 2)),
+            Plan::Charge,
+            "clear horizontal"
+        );
+        assert_eq!(
+            decide(&map, &known, (2, 1), (2, 3)),
+            Plan::Charge,
+            "clear vertical"
+        );
         // Adjacent cells on the same row also charge (no cells in between).
         assert_eq!(decide(&map, &known, (1, 2), (2, 2)), Plan::Charge);
     }
@@ -576,7 +623,10 @@ mod tests {
         let known: HashSet<_> = [(2, 2)].into_iter().collect();
         let plan = decide(&map, &known, (1, 2), (3, 2));
         assert_ne!(plan, Plan::Charge, "a rock in the line blocks a charge");
-        assert!(matches!(plan, Plan::Path(_)), "a diggable door gives a path");
+        assert!(
+            matches!(plan, Plan::Path(_)),
+            "a diggable door gives a path"
+        );
     }
 
     #[test]
@@ -619,7 +669,11 @@ mod tests {
         let known: HashSet<_> = [(2, 1)].into_iter().collect();
         match decide(&map, &known, (1, 2), (3, 2)) {
             Plan::Path(p) => {
-                assert_eq!(*p.last().unwrap(), (2, 1), "carve toward the known rock nearest the player");
+                assert_eq!(
+                    *p.last().unwrap(),
+                    (2, 1),
+                    "carve toward the known rock nearest the player"
+                );
             }
             other => panic!("expected a fallback path, got {other:?}"),
         }
@@ -630,13 +684,19 @@ mod tests {
         let mut map = open_map();
         map.set_tile(2, 3, Tile::Mineable);
         let mut b = Beast::new(center_of((2, 2)), 140.0, 1.0, 0.25);
-        b.state = BeastState::Dig { target: (2, 3), progress: 0.0 };
+        b.state = BeastState::Dig {
+            target: (2, 3),
+            progress: 0.0,
+        };
         // Dig for 1.0s (mining_time) + a margin.
         for _ in 0..70 {
             b.update(center_of((2, 1)), &mut map, 1.0 / 60.0);
         }
         assert_eq!(map.tile(2, 3), Tile::Dirt, "known rock was dug through");
-        assert!(!b.known_mineable.contains(&(2, 3)), "dug cell leaves the known set");
+        assert!(
+            !b.known_mineable.contains(&(2, 3)),
+            "dug cell leaves the known set"
+        );
     }
 
     #[test]
@@ -644,11 +704,18 @@ mod tests {
         let mut map = open_map();
         map.set_tile(2, 3, Tile::Unmineable);
         let mut b = Beast::new(center_of((2, 2)), 140.0, 1.0, 0.25);
-        b.state = BeastState::Dig { target: (2, 3), progress: 0.0 };
+        b.state = BeastState::Dig {
+            target: (2, 3),
+            progress: 0.0,
+        };
         for _ in 0..70 {
             b.update(center_of((2, 1)), &mut map, 1.0 / 60.0);
         }
-        assert_eq!(map.tile(2, 3), Tile::Unmineable, "unmineable rocks are never dug");
+        assert_eq!(
+            map.tile(2, 3),
+            Tile::Unmineable,
+            "unmineable rocks are never dug"
+        );
         // Unknown cells are never *targeted* by the decision loop either.
         let known = HashSet::new();
         for y in 1..4 {
@@ -716,21 +783,27 @@ mod tests {
                 break;
             }
         }
-        assert!(reached, "beast should reach the player via the clear dirt tunnel");
+        assert!(
+            reached,
+            "beast should reach the player via the clear dirt tunnel"
+        );
     }
 
     #[test]
     fn repro_clear_tunnel_real_map() {
         use crate::config::map::MapConfig;
         use crate::game::generation::generate;
-        let cfg = MapConfig::from_toml(r#"
+        let cfg = MapConfig::from_toml(
+            r#"
             width = 30
             height = 20
             unmineable_count = 20
             beast_count = 1
             start = { x = 15, y = 19 }
             exit  = { x = 5,  y = 0 }
-        "#).unwrap();
+        "#,
+        )
+        .unwrap();
         let mut map = generate(&cfg, 12345).unwrap();
         // Carve a full clear Dirt tunnel from the exit gap (beast spawn) down
         // column x=5 to the bottom, then across row y=19 to the start gap, as if
@@ -795,7 +868,10 @@ mod tests {
     #[test]
     fn dig_frame_reports_target_and_progress_ratio() {
         let mut b = Beast::new(center_of((2, 2)), 140.0, 2.0, 0.25);
-        b.state = BeastState::Dig { target: (2, 3), progress: 0.5 };
+        b.state = BeastState::Dig {
+            target: (2, 3),
+            progress: 0.5,
+        };
         let (target, ratio) = b.dig_frame().expect("is digging");
         assert_eq!(target, (2, 3));
         assert!((ratio - 0.25).abs() < 1e-5, "0.5 / 2.0 = 0.25, got {ratio}");
@@ -820,7 +896,10 @@ mod tests {
         // A mineable door does NOT count as a clear path: chase stays off until
         // the beast actually digs the rock open (chase is dirt-only).
         map.set_tile(2, 2, Tile::Mineable);
-        assert!(!b.has_clear_path(&map, (3, 2)), "dirt-only means no rock on the route");
+        assert!(
+            !b.has_clear_path(&map, (3, 2)),
+            "dirt-only means no rock on the route"
+        );
     }
 
     #[test]
@@ -831,10 +910,17 @@ mod tests {
         b.sticky = true;
         for _ in 0..400 {
             b.update(center_of((2, 0)), &mut map, 1.0 / 60.0);
-            assert!(matches!(b.state, BeastState::Wander { .. }), "sticky => always wandering");
+            assert!(
+                matches!(b.state, BeastState::Wander { .. }),
+                "sticky => always wandering"
+            );
             assert!(b.dig_frame().is_none(), "never digs while sticky");
         }
-        assert_eq!(map.tile(2, 3), Tile::Mineable, "the rock was never dug by the wanderer");
+        assert_eq!(
+            map.tile(2, 3),
+            Tile::Mineable,
+            "the rock was never dug by the wanderer"
+        );
     }
 
     #[test]
@@ -847,7 +933,10 @@ mod tests {
         b.sticky = true;
         for _ in 0..300 {
             b.update(center_of((4, 2)), &mut map, 1.0 / 60.0);
-            assert!(b.pos.x < 2.0 * TILE_SIZE, "wandering beast cannot pass the wall");
+            assert!(
+                b.pos.x < 2.0 * TILE_SIZE,
+                "wandering beast cannot pass the wall"
+            );
         }
     }
 

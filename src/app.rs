@@ -22,16 +22,16 @@
 
 use macroquad::prelude::*;
 
-use crate::assets::ids::{BeastAnim, Direction, IconId, PickupId, PlayerAnim};
 use crate::assets::Assets;
+use crate::assets::ids::{BeastAnim, Direction, IconId, PickupId, PlayerAnim};
 use crate::audio::{Audio, Music, Sfx};
 use crate::config::game::GameConfig;
 use crate::config::map::MapConfig;
+use crate::game::TILE_SIZE;
 use crate::game::camera::Camera;
 use crate::game::run::{Run, RunEvent, RunSnapshot};
 use crate::game::shop::ShopItem;
 use crate::game::terrain;
-use crate::game::TILE_SIZE;
 use crate::hud;
 use crate::input;
 use crate::menu::{self, Menu, MenuAction, MenuInput, MenuSource};
@@ -176,9 +176,10 @@ impl App {
     /// Advance the simulation by `dt` seconds.
     pub fn update(&mut self, dt: f32) {
         match self.state {
-            GameState::MainMenu | GameState::LevelSelect | GameState::Settings | GameState::Paused => {
-                self.update_menu(dt)
-            }
+            GameState::MainMenu
+            | GameState::LevelSelect
+            | GameState::Settings
+            | GameState::Paused => self.update_menu(dt),
             GameState::Playing => self.update_playing(dt),
             GameState::Intro => self.update_intro(),
             GameState::LevelComplete => self.update_level_complete(),
@@ -210,8 +211,8 @@ impl App {
         match action {
             MenuAction::None => {}
             MenuAction::NewGame => {
-                self.run =
-                    Run::new(self.game_config.clone(), self.map_configs.clone()).expect("new run builds");
+                self.run = Run::new(self.game_config.clone(), self.map_configs.clone())
+                    .expect("new run builds");
                 self.saved_run = None;
                 save::clear();
                 self.follow_camera();
@@ -226,18 +227,26 @@ impl App {
             }
             MenuAction::Continue => {
                 if let Some(snap) = self.saved_run {
-                    self.run = Run::resume(self.game_config.clone(), self.map_configs.clone(), snap)
-                        .expect("saved run resumes");
+                    self.run =
+                        Run::resume(self.game_config.clone(), self.map_configs.clone(), snap)
+                            .expect("saved run resumes");
                     self.state = GameState::Playing;
                     self.follow_camera();
                 }
             }
             MenuAction::OpenLevelSelect => {
-                self.menu = Menu::LevelSelect(menu::LevelSelect::new(self.map_configs.len(), self.run.unlocked()));
+                self.menu = Menu::LevelSelect(menu::LevelSelect::new(
+                    self.map_configs.len(),
+                    self.run.unlocked(),
+                ));
                 self.state = GameState::LevelSelect;
             }
             MenuAction::OpenSettings => {
-                let source = if self.state == GameState::Paused { MenuSource::Pause } else { MenuSource::Main };
+                let source = if self.state == GameState::Paused {
+                    MenuSource::Pause
+                } else {
+                    MenuSource::Main
+                };
                 self.menu = Menu::Settings(menu::SettingsScreen::new(source));
                 self.state = GameState::Settings;
             }
@@ -253,12 +262,14 @@ impl App {
                 self.maybe_persist_settings();
             }
             MenuAction::VolumeUpMusic => {
-                self.settings.music_volume = settings_mod::volume_step(self.settings.music_volume, 0.1);
+                self.settings.music_volume =
+                    settings_mod::volume_step(self.settings.music_volume, 0.1);
                 self.audio.set_music_volume(self.settings.music_volume);
                 self.maybe_persist_settings();
             }
             MenuAction::VolumeDownMusic => {
-                self.settings.music_volume = settings_mod::volume_step(self.settings.music_volume, -0.1);
+                self.settings.music_volume =
+                    settings_mod::volume_step(self.settings.music_volume, -0.1);
                 self.audio.set_music_volume(self.settings.music_volume);
                 self.maybe_persist_settings();
             }
@@ -268,7 +279,8 @@ impl App {
                 self.maybe_persist_settings();
             }
             MenuAction::VolumeDownSfx => {
-                self.settings.sfx_volume = settings_mod::volume_step(self.settings.sfx_volume, -0.1);
+                self.settings.sfx_volume =
+                    settings_mod::volume_step(self.settings.sfx_volume, -0.1);
                 self.audio.set_sfx_volume(self.settings.sfx_volume);
                 self.maybe_persist_settings();
             }
@@ -298,13 +310,13 @@ impl App {
                 self.state = GameState::Paused;
                 self.menu = Menu::Pause(menu::Pause::new());
             }
-            Menu::Settings(_) => self.to_main_menu(),
-            Menu::LevelSelect(_) => self.to_main_menu(),
+            Menu::Settings(_) => self.return_to_main_menu(),
+            Menu::LevelSelect(_) => self.return_to_main_menu(),
             _ => {}
         }
     }
 
-    fn to_main_menu(&mut self) {
+    fn return_to_main_menu(&mut self) {
         self.state = GameState::MainMenu;
         self.menu = Menu::Main(menu::MainMenu::new(self.saved_run.is_some()));
     }
@@ -312,7 +324,11 @@ impl App {
     /// Persist the current run snapshot + settings to disk.
     fn persist(&mut self) {
         let snap = self.run.snapshot();
-        let save = SaveData { version: save::SAVE_VERSION, run: snap, settings: self.settings };
+        let save = SaveData {
+            version: save::SAVE_VERSION,
+            run: snap,
+            settings: self.settings,
+        };
         save::save(&save);
         self.saved_run = Some(snap);
     }
@@ -369,7 +385,10 @@ impl App {
 
     /// The intro screen: any confirm key dismisses it and starts level 1.
     fn update_intro(&mut self) {
-        if is_key_pressed(KeyCode::Enter) || is_key_pressed(KeyCode::Space) || is_key_pressed(KeyCode::Escape) {
+        if is_key_pressed(KeyCode::Enter)
+            || is_key_pressed(KeyCode::Space)
+            || is_key_pressed(KeyCode::Escape)
+        {
             self.state = GameState::Playing;
             self.follow_camera();
         }
@@ -377,7 +396,10 @@ impl App {
 
     fn update_level_complete(&mut self) {
         // Acknowledge the score, then head to the shop.
-        if is_key_pressed(KeyCode::Enter) || is_key_pressed(KeyCode::Space) || is_key_pressed(KeyCode::Escape) {
+        if is_key_pressed(KeyCode::Enter)
+            || is_key_pressed(KeyCode::Space)
+            || is_key_pressed(KeyCode::Escape)
+        {
             self.shop_index = 0;
             self.state = GameState::Shop;
         }
@@ -417,8 +439,11 @@ impl App {
     fn update_result(&mut self) {
         // Leaving the result screen returns to the main menu (run is kept for
         // level-select replay; nothing is auto-saved here).
-        if is_key_pressed(KeyCode::Enter) || is_key_pressed(KeyCode::Space) || is_key_pressed(KeyCode::Escape) {
-            self.to_main_menu();
+        if is_key_pressed(KeyCode::Enter)
+            || is_key_pressed(KeyCode::Space)
+            || is_key_pressed(KeyCode::Escape)
+        {
+            self.return_to_main_menu();
         }
     }
 
@@ -435,8 +460,13 @@ impl App {
     fn follow_camera(&mut self) {
         let map_w = self.run.level.map.width as f32 * TILE_SIZE;
         let map_h = self.run.level.map.height as f32 * TILE_SIZE;
-        self.camera
-            .follow(self.run.level.player.pos, map_w, map_h, screen_width(), screen_height());
+        self.camera.follow(
+            self.run.level.player.pos,
+            map_w,
+            map_h,
+            screen_width(),
+            screen_height(),
+        );
     }
 
     // ---- Audio -----------------------------------------------------------
@@ -451,14 +481,20 @@ impl App {
         if self.state == GameState::Playing {
             // Dig loop while the player mines — but NOT during a Super Pick
             // instant mine (the break is instantaneous; only RockBreak fires).
-            let mining = self.run.level.player.mining.is_some() && !self.run.level.player.super_pick;
+            let mining =
+                self.run.level.player.mining.is_some() && !self.run.level.player.super_pick;
             if mining {
                 self.audio.start_loop(Sfx::Dig);
             } else {
                 self.audio.stop_loop(Sfx::Dig);
             }
 
-            let beast_digging = self.run.level.beasts.iter().any(|b| b.dig_frame().is_some());
+            let beast_digging = self
+                .run
+                .level
+                .beasts
+                .iter()
+                .any(|b| b.dig_frame().is_some());
             if beast_digging {
                 self.audio.start_loop(Sfx::BeastDig);
             } else {
@@ -477,10 +513,15 @@ impl App {
     /// The music track for the current state.
     fn desired_music(&self) -> Music {
         match self.state {
-            GameState::MainMenu | GameState::LevelSelect | GameState::Settings | GameState::Paused
-            | GameState::Intro | GameState::LevelComplete | GameState::Shop | GameState::GameOver | GameState::Victory => {
-                Music::Menu
-            }
+            GameState::MainMenu
+            | GameState::LevelSelect
+            | GameState::Settings
+            | GameState::Paused
+            | GameState::Intro
+            | GameState::LevelComplete
+            | GameState::Shop
+            | GameState::GameOver
+            | GameState::Victory => Music::Menu,
             GameState::Playing => {
                 if self.beast_has_clear_path() {
                     Music::Chase
@@ -550,7 +591,9 @@ impl App {
             GameState::Paused => self.draw_gameplay(view_w, view_h, rt, GameplayDraw::Paused),
             GameState::Playing => self.draw_gameplay(view_w, view_h, rt, GameplayDraw::Playing),
             GameState::Intro => self.draw_intro(view_w, view_h, rt),
-            GameState::LevelComplete => self.draw_gameplay(view_w, view_h, rt, GameplayDraw::LevelComplete),
+            GameState::LevelComplete => {
+                self.draw_gameplay(view_w, view_h, rt, GameplayDraw::LevelComplete)
+            }
             GameState::Shop => self.draw_gameplay(view_w, view_h, rt, GameplayDraw::Shop),
             GameState::GameOver => self.draw_gameplay(view_w, view_h, rt, GameplayDraw::GameOver),
             GameState::Victory => self.draw_gameplay(view_w, view_h, rt, GameplayDraw::Victory),
@@ -576,7 +619,13 @@ impl App {
     }
 
     /// Draw a gameplay state: the world scene, then the HUD (+ any overlay).
-    fn draw_gameplay(&mut self, view_w: f32, view_h: f32, rt: Option<RenderTarget>, mode: GameplayDraw) {
+    fn draw_gameplay(
+        &mut self,
+        view_w: f32,
+        view_h: f32,
+        rt: Option<RenderTarget>,
+        mode: GameplayDraw,
+    ) {
         self.draw_scene(view_w, view_h, rt.clone());
         Self::set_screen_camera(rt.clone(), view_w, view_h);
 
@@ -588,7 +637,14 @@ impl App {
             self.run.gold
         };
         let show_timer = mode == GameplayDraw::Playing;
-        hud::draw_hud(&self.assets, &self.run, gold_display, show_timer, view_w, view_h);
+        hud::draw_hud(
+            &self.assets,
+            &self.run,
+            gold_display,
+            show_timer,
+            view_w,
+            view_h,
+        );
 
         match mode {
             GameplayDraw::Playing | GameplayDraw::Paused => {}
@@ -599,7 +655,9 @@ impl App {
                 self.last_level_gold,
                 self.run.score_total,
             ),
-            GameplayDraw::Shop => draw_shop_overlay(&self.assets, view_w, view_h, &self.run, self.shop_index),
+            GameplayDraw::Shop => {
+                draw_shop_overlay(&self.assets, view_w, view_h, &self.run, self.shop_index)
+            }
             GameplayDraw::GameOver => draw_game_over_overlay(view_w, view_h),
             GameplayDraw::Victory => draw_victory_overlay(view_w, view_h, self.run.score_total),
         }
@@ -624,7 +682,13 @@ impl App {
         let labels: Vec<String> = items.iter().map(|it| main_menu_label(*it)).collect();
         self.draw_button_column(&labels, selection, w, 250.0, true);
 
-        centered_text("Up/Down: select    Enter: activate", w, h - 40.0, 18.0, LIGHTGRAY);
+        centered_text(
+            "Up/Down: select    Enter: activate",
+            w,
+            h - 40.0,
+            18.0,
+            LIGHTGRAY,
+        );
         set_default_camera();
     }
 
@@ -651,7 +715,13 @@ impl App {
             centered_text(line, w, y, 24.0, WHITE);
             y += 40.0;
         }
-        centered_text("Press Enter to begin", w, panel.y + panel.h - 40.0, 24.0, YELLOW);
+        centered_text(
+            "Press Enter to begin",
+            w,
+            panel.y + panel.h - 40.0,
+            24.0,
+            YELLOW,
+        );
         set_default_camera();
     }
 
@@ -685,7 +755,11 @@ impl App {
             } else {
                 ButtonState::Normal
             };
-            ui::draw_button(&self.assets, Rect::new((w - btn_w) / 2.0, y, btn_w, btn_h), state);
+            ui::draw_button(
+                &self.assets,
+                Rect::new((w - btn_w) / 2.0, y, btn_w, btn_h),
+                state,
+            );
             let label = if locked {
                 format!("Level {}  (locked)", i + 1)
             } else {
@@ -698,7 +772,13 @@ impl App {
             } else {
                 WHITE
             };
-            centered_text(&label, w, y + btn_h / 2.0 + 6.0, if btn_h >= 40.0 { 22.0 } else { 20.0 }, color);
+            centered_text(
+                &label,
+                w,
+                y + btn_h / 2.0 + 6.0,
+                if btn_h >= 40.0 { 22.0 } else { 20.0 },
+                color,
+            );
         }
 
         centered_text("Enter: play    Esc: back", w, h - 40.0, 18.0, LIGHTGRAY);
@@ -718,35 +798,108 @@ impl App {
         let start_y = 220.0;
         let line_h = 84.0;
 
-        let music_state = if selection == 0 { ButtonState::Hover } else { ButtonState::Normal };
+        let music_state = if selection == 0 {
+            ButtonState::Hover
+        } else {
+            ButtonState::Normal
+        };
         draw_text("Music Volume", w * 0.22, start_y + 34.0, 24.0, WHITE);
-        ui::draw_slider(&self.assets, Rect::new(w * 0.55, start_y + 12.0, w * 0.32, 36.0), self.settings.music_volume, music_state);
+        ui::draw_slider(
+            &self.assets,
+            Rect::new(w * 0.55, start_y + 12.0, w * 0.32, 36.0),
+            self.settings.music_volume,
+            music_state,
+        );
 
-        let sfx_state = if selection == 1 { ButtonState::Hover } else { ButtonState::Normal };
+        let sfx_state = if selection == 1 {
+            ButtonState::Hover
+        } else {
+            ButtonState::Normal
+        };
         draw_text("SFX Volume", w * 0.22, start_y + line_h + 34.0, 24.0, WHITE);
-        ui::draw_slider(&self.assets, Rect::new(w * 0.55, start_y + line_h + 12.0, w * 0.32, 36.0), self.settings.sfx_volume, sfx_state);
+        ui::draw_slider(
+            &self.assets,
+            Rect::new(w * 0.55, start_y + line_h + 12.0, w * 0.32, 36.0),
+            self.settings.sfx_volume,
+            sfx_state,
+        );
 
         // Fullscreen toggle row.
-        let fs_state = if selection == 2 { ButtonState::Hover } else { ButtonState::Normal };
-        draw_text("Fullscreen", w * 0.22, start_y + 2.0 * line_h + 34.0, 24.0, WHITE);
+        let fs_state = if selection == 2 {
+            ButtonState::Hover
+        } else {
+            ButtonState::Normal
+        };
+        draw_text(
+            "Fullscreen",
+            w * 0.22,
+            start_y + 2.0 * line_h + 34.0,
+            24.0,
+            WHITE,
+        );
         let btn_w = 200.0;
         let btn_x = w * 0.55;
-        ui::draw_button(&self.assets, Rect::new(btn_x, start_y + 2.0 * line_h + 12.0, btn_w, 40.0), fs_state);
-        let label = if self.settings.fullscreen { "ON" } else { "OFF" };
-        let color = if self.settings.fullscreen { GREEN } else { LIGHTGRAY };
-        centered_text(label, btn_x + btn_w, start_y + 2.0 * line_h + 12.0 + 32.0, 24.0, color);
+        ui::draw_button(
+            &self.assets,
+            Rect::new(btn_x, start_y + 2.0 * line_h + 12.0, btn_w, 40.0),
+            fs_state,
+        );
+        let label = if self.settings.fullscreen {
+            "ON"
+        } else {
+            "OFF"
+        };
+        let color = if self.settings.fullscreen {
+            GREEN
+        } else {
+            LIGHTGRAY
+        };
+        centered_text(
+            label,
+            btn_x + btn_w,
+            start_y + 2.0 * line_h + 12.0 + 32.0,
+            24.0,
+            color,
+        );
 
         // Back row.
-        let back_state = if selection == 3 { ButtonState::Hover } else { ButtonState::Normal };
-        ui::draw_button(&self.assets, Rect::new(w / 2.0 - 170.0, start_y + 3.0 * line_h, 340.0, 46.0), back_state);
-        centered_text("Back", w, start_y + 3.0 * line_h + 31.0, 24.0, if selection == 3 { YELLOW } else { WHITE });
+        let back_state = if selection == 3 {
+            ButtonState::Hover
+        } else {
+            ButtonState::Normal
+        };
+        ui::draw_button(
+            &self.assets,
+            Rect::new(w / 2.0 - 170.0, start_y + 3.0 * line_h, 340.0, 46.0),
+            back_state,
+        );
+        centered_text(
+            "Back",
+            w,
+            start_y + 3.0 * line_h + 31.0,
+            24.0,
+            if selection == 3 { YELLOW } else { WHITE },
+        );
 
-        centered_text("Left/Right: volume   Enter: toggle   Esc: back", w, h - 40.0, 18.0, LIGHTGRAY);
+        centered_text(
+            "Left/Right: volume   Enter: toggle   Esc: back",
+            w,
+            h - 40.0,
+            18.0,
+            LIGHTGRAY,
+        );
         set_default_camera();
     }
 
     /// Draw a centered column of buttons (used by the main menu & pause overlay).
-    fn draw_button_column(&self, labels: &[String], selected: usize, w: f32, start_y: f32, panel: bool) {
+    fn draw_button_column(
+        &self,
+        labels: &[String],
+        selected: usize,
+        w: f32,
+        start_y: f32,
+        panel: bool,
+    ) {
         let btn_w = 340.0;
         let btn_h = 46.0;
         let line_h = 58.0;
@@ -758,7 +911,11 @@ impl App {
         }
         for (i, label) in labels.iter().enumerate() {
             let y = start_y + i as f32 * line_h;
-            let state = if i == selected { ButtonState::Hover } else { ButtonState::Normal };
+            let state = if i == selected {
+                ButtonState::Hover
+            } else {
+                ButtonState::Normal
+            };
             ui::draw_button(&self.assets, Rect::new(cx, y, btn_w, btn_h), state);
             let color = if i == selected { YELLOW } else { WHITE };
             centered_text(label, w, y + btn_h / 2.0 + 8.0, 24.0, color);
@@ -772,7 +929,13 @@ impl App {
             Menu::Pause(p) => p.selection,
             _ => 0,
         };
-        let labels = ["Resume", "Restart Level", "Save", "Settings", "Quit to Menu"];
+        let labels = [
+            "Resume",
+            "Restart Level",
+            "Save",
+            "Settings",
+            "Quit to Menu",
+        ];
         let label_refs: Vec<String> = labels.iter().map(|s| s.to_string()).collect();
         self.draw_button_column(&label_refs, selection, w, 170.0, true);
         centered_text("Esc: resume", w, h - 40.0, 18.0, LIGHTGRAY);
@@ -823,7 +986,12 @@ impl App {
         set_default_camera();
     }
 
-    fn scene_camera(&self, view_w: f32, view_h: f32, render_target: Option<RenderTarget>) -> Camera2D {
+    fn scene_camera(
+        &self,
+        view_w: f32,
+        view_h: f32,
+        render_target: Option<RenderTarget>,
+    ) -> Camera2D {
         // Our Camera.zoom is a *magnification* (2.0 -> a 16px tile renders at
         // 32px). macroquad's Camera2D.zoom is instead `2 / visible_world_size`
         // in clip space, so convert. We center the visible world rect on the
@@ -928,7 +1096,10 @@ impl App {
 
     fn draw_beasts(&self) {
         for beast in &self.run.level.beasts {
-            let anim = BeastAnim { dir: beast.dir(), motion: beast.motion };
+            let anim = BeastAnim {
+                dir: beast.dir(),
+                motion: beast.motion,
+            };
             let tex = self.assets.beast_anim(anim);
             let offset = TILE_SIZE / 2.0;
             draw_texture_ex(
@@ -968,7 +1139,9 @@ impl App {
     /// Force an initial state for `DSH_SCREEN=<name>` (desktop visual checks).
     #[cfg(not(target_arch = "wasm32"))]
     fn apply_debug_screen(&mut self) {
-        let Ok(name) = std::env::var("DSH_SCREEN") else { return };
+        let Ok(name) = std::env::var("DSH_SCREEN") else {
+            return;
+        };
         match name.as_str() {
             "mainmenu" | "menu" => {
                 self.state = GameState::MainMenu;
@@ -976,7 +1149,10 @@ impl App {
             }
             "levelselect" => {
                 self.state = GameState::LevelSelect;
-                self.menu = Menu::LevelSelect(menu::LevelSelect::new(self.map_configs.len(), self.run.unlocked()));
+                self.menu = Menu::LevelSelect(menu::LevelSelect::new(
+                    self.map_configs.len(),
+                    self.run.unlocked(),
+                ));
             }
             "intro" => self.state = GameState::Intro,
             "settings" => {
@@ -1038,7 +1214,10 @@ fn menu_input() -> MenuInput {
 
 /// The grid tile `(tx, ty)` containing a world-pixel position.
 fn grid_cell(pos: Vec2) -> (i32, i32) {
-    ((pos.x / TILE_SIZE).floor() as i32, (pos.y / TILE_SIZE).floor() as i32)
+    (
+        (pos.x / TILE_SIZE).floor() as i32,
+        (pos.y / TILE_SIZE).floor() as i32,
+    )
 }
 
 /// The current selection index of the active menu screen, if any.
@@ -1088,7 +1267,13 @@ fn draw_level_complete_overlay(w: f32, h: f32, score: u64, gold: u32, score_tota
     centered_text("LEVEL COMPLETE", w, 120.0, 48.0, WHITE);
     centered_text(&format!("Gold this level: {gold}"), w, 200.0, 28.0, GOLD);
     centered_text(&format!("Score this level: {score}"), w, 240.0, 28.0, WHITE);
-    centered_text(&format!("Total score: {score_total}"), w, 276.0, 28.0, LIGHTGRAY);
+    centered_text(
+        &format!("Total score: {score_total}"),
+        w,
+        276.0,
+        28.0,
+        LIGHTGRAY,
+    );
     centered_text("Enter: continue to shop", w, h - 90.0, 20.0, LIGHTGRAY);
 }
 
@@ -1108,7 +1293,7 @@ fn draw_shop_overlay(assets: &Assets, w: f32, h: f32, run: &Run, selected: usize
         let color = if i == selected { YELLOW } else { WHITE };
         let label = shop_label(*item, run);
         let cost = shop_cost_str(*item, run);
-        draw_text(&format!("{cursor}{label}  {cost}"), left, y, 22.0, color);
+        draw_text(format!("{cursor}{label}  {cost}"), left, y, 22.0, color);
         if i == selected {
             let tex = assets.icon(shop_icon(*item));
             draw_texture_ex(
@@ -1126,11 +1311,31 @@ fn draw_shop_overlay(assets: &Assets, w: f32, h: f32, run: &Run, selected: usize
 
     // The final, selectable "Continue → next level" row.
     let cy = start_y + SHOP_ITEMS.len() as f32 * line_h;
-    let cursor = if selected == SHOP_CONTINUE { "> " } else { "  " };
-    let color = if selected == SHOP_CONTINUE { YELLOW } else { WHITE };
-    draw_text(&format!("{cursor}Continue  ->  next level"), left, cy, 22.0, color);
+    let cursor = if selected == SHOP_CONTINUE {
+        "> "
+    } else {
+        "  "
+    };
+    let color = if selected == SHOP_CONTINUE {
+        YELLOW
+    } else {
+        WHITE
+    };
+    draw_text(
+        format!("{cursor}Continue  ->  next level"),
+        left,
+        cy,
+        22.0,
+        color,
+    );
 
-    centered_text("Enter/Space: buy/continue    Esc: continue", w, h - 70.0, 20.0, LIGHTGRAY);
+    centered_text(
+        "Enter/Space: buy/continue    Esc: continue",
+        w,
+        h - 70.0,
+        20.0,
+        LIGHTGRAY,
+    );
 }
 
 /// A short display label for a shop item, including its owned state.
@@ -1138,11 +1343,17 @@ fn shop_label(item: ShopItem, run: &Run) -> String {
     match item {
         ShopItem::WalkSpeed => {
             let cfg = run.config();
-            format!("Walk Speed (lv {}/{})", run.upgrades.walk_speed, cfg.upgrades.walk_speed.max_level)
+            format!(
+                "Walk Speed (lv {}/{})",
+                run.upgrades.walk_speed, cfg.upgrades.walk_speed.max_level
+            )
         }
         ShopItem::MiningSpeed => {
             let cfg = run.config();
-            format!("Mining Speed (lv {}/{})", run.upgrades.mining_speed, cfg.upgrades.mining_speed.max_level)
+            format!(
+                "Mining Speed (lv {}/{})",
+                run.upgrades.mining_speed, cfg.upgrades.mining_speed.max_level
+            )
         }
         ShopItem::Lives => {
             let cfg = run.config();
@@ -1158,8 +1369,12 @@ fn shop_label(item: ShopItem, run: &Run) -> String {
 fn shop_cost_str(item: ShopItem, run: &Run) -> String {
     let cost = run.item_cost(item);
     let maxed = match item {
-        ShopItem::WalkSpeed => run.upgrades.walk_speed >= run.config().upgrades.walk_speed.max_level,
-        ShopItem::MiningSpeed => run.upgrades.mining_speed >= run.config().upgrades.mining_speed.max_level,
+        ShopItem::WalkSpeed => {
+            run.upgrades.walk_speed >= run.config().upgrades.walk_speed.max_level
+        }
+        ShopItem::MiningSpeed => {
+            run.upgrades.mining_speed >= run.config().upgrades.mining_speed.max_level
+        }
         ShopItem::Lives => run.lives >= run.config().player.max_lives,
         ShopItem::SuperPick | ShopItem::StickySmell => false,
     };
@@ -1192,7 +1407,13 @@ fn draw_game_over_overlay(w: f32, h: f32) {
 fn draw_victory_overlay(w: f32, h: f32, score_total: u64) {
     draw_overlay(w, h);
     centered_text("VICTORY", w, (h + 60.0) / 2.0 - 40.0, 48.0, WHITE);
-    centered_text(&format!("Final score: {score_total}"), w, (h + 60.0) / 2.0 + 10.0, 24.0, GOLD);
+    centered_text(
+        &format!("Final score: {score_total}"),
+        w,
+        (h + 60.0) / 2.0 + 10.0,
+        24.0,
+        GOLD,
+    );
     centered_text("Enter: menu", w, (h + 60.0) / 2.0 + 50.0, 20.0, LIGHTGRAY);
 }
 
@@ -1201,7 +1422,11 @@ fn draw_victory_overlay(w: f32, h: f32, score_total: u64) {
 fn mq_zoom(mag: f32, view_w: f32, view_h: f32, to_render_target: bool) -> Vec2 {
     let world_w = view_w / mag;
     let world_h = view_h / mag;
-    let zoom_y = if to_render_target { -2.0 / world_h } else { 2.0 / world_h };
+    let zoom_y = if to_render_target {
+        -2.0 / world_h
+    } else {
+        2.0 / world_h
+    };
     Vec2::new(2.0 / world_w, zoom_y)
 }
 

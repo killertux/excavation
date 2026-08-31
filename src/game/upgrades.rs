@@ -20,7 +20,9 @@ pub fn walk_speed(base: f32, upgrades: &Upgrades, cfg: &WalkSpeedConfig) -> f32 
 
 /// Effective per-rock mining time given the base and the present upgrade level.
 pub fn mining_time(base: f32, upgrades: &Upgrades, cfg: &MiningSpeedConfig) -> f32 {
-    base * cfg.mining_time_multiplier_per_level.powf(upgrades.mining_speed as f32)
+    base * cfg
+        .mining_time_multiplier_per_level
+        .powf(upgrades.mining_speed as f32)
 }
 
 /// The gold cost to go from `level` to `level + 1`. `None` when `level` is at
@@ -38,22 +40,36 @@ mod tests {
     use crate::config::game::{MiningSpeedConfig, WalkSpeedConfig};
 
     fn walk_cfg() -> WalkSpeedConfig {
-        WalkSpeedConfig { max_level: 5, cost_per_level: vec![50, 100, 200, 400, 800], speed_increase_per_level: 15.0 }
+        WalkSpeedConfig {
+            max_level: 5,
+            cost_per_level: vec![50, 100, 200, 400, 800],
+            speed_increase_per_level: 15.0,
+        }
     }
 
     fn mine_cfg() -> MiningSpeedConfig {
-        MiningSpeedConfig { max_level: 5, cost_per_level: vec![50, 100, 200, 400, 800], mining_time_multiplier_per_level: 0.85 }
+        MiningSpeedConfig {
+            max_level: 5,
+            cost_per_level: vec![50, 100, 200, 400, 800],
+            mining_time_multiplier_per_level: 0.85,
+        }
     }
 
     #[test]
     fn walk_speed_is_additive_per_level() {
-        let u = Upgrades { walk_speed: 2, mining_speed: 0 };
+        let u = Upgrades {
+            walk_speed: 2,
+            mining_speed: 0,
+        };
         assert!((walk_speed(240.0, &u, &walk_cfg()) - 270.0).abs() < 1e-5);
     }
 
     #[test]
     fn mining_time_is_multiplicative_per_level() {
-        let u = Upgrades { walk_speed: 0, mining_speed: 3 };
+        let u = Upgrades {
+            walk_speed: 0,
+            mining_speed: 3,
+        };
         // 0.8 * 0.85^3
         let expected = 0.8 * 0.85f32.powi(3);
         assert!((mining_time(0.8, &u, &mine_cfg()) - expected).abs() < 1e-5);
