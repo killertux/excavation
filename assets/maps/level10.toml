@@ -1,0 +1,17 @@
+# Level 10 — the final gauntlet. The biggest map, the most rock, three relentless
+# beasts that dig nearly as fast as you can. Beat it and you've won.
+width = 38
+height = 28
+
+unmineable_count = 460
+gold_count = 18
+beast_count = 3
+beast_speed_multiplier = 1.30
+beast_mining_time_multiplier = 0.70
+
+start = { x = 19, y = 27 }
+exit  = { x = 37, y = 14 }
+
+seed = 1010
+
+structures = [[10, 12], [11, 12], [12, 12], [13, 12], [14, 12], [15, 12], [10, 13], [11, 13], [12, 13], [13, 13], [14, 13], [15, 13], [10, 14], [11, 14], [12, 14], [13, 14], [14, 14], [15, 14]]

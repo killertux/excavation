@@ -74,6 +74,8 @@ pub enum GameState {
     Settings,
     Paused,
     Playing,
+    /// Static story intro shown once before a brand-new run (the gem).
+    Intro,
     /// Just finished a level; shows the score/gold before the shop.
     LevelComplete,
     /// Between-level shop (buy upgrades/consumables, then continue).
@@ -178,6 +180,7 @@ impl App {
                 self.update_menu(dt)
             }
             GameState::Playing => self.update_playing(dt),
+            GameState::Intro => self.update_intro(),
             GameState::LevelComplete => self.update_level_complete(),
             GameState::Shop => self.update_shop(),
             GameState::GameOver | GameState::Victory => self.update_result(),
@@ -211,8 +214,15 @@ impl App {
                     Run::new(self.game_config.clone(), self.map_configs.clone()).expect("new run builds");
                 self.saved_run = None;
                 save::clear();
-                self.state = GameState::Playing;
                 self.follow_camera();
+                // The gem story beat: a brand-new run shows the intro first (and
+                // plays the gem pickup once). Continue/Level-Select bypass it.
+                self.audio.play(Sfx::GemPickup);
+                self.state = if menu::shows_intro(action) {
+                    GameState::Intro
+                } else {
+                    GameState::Playing
+                };
             }
             MenuAction::Continue => {
                 if let Some(snap) = self.saved_run {
@@ -357,6 +367,14 @@ impl App {
         self.follow_camera();
     }
 
+    /// The intro screen: any confirm key dismisses it and starts level 1.
+    fn update_intro(&mut self) {
+        if is_key_pressed(KeyCode::Enter) || is_key_pressed(KeyCode::Space) || is_key_pressed(KeyCode::Escape) {
+            self.state = GameState::Playing;
+            self.follow_camera();
+        }
+    }
+
     fn update_level_complete(&mut self) {
         // Acknowledge the score, then head to the shop.
         if is_key_pressed(KeyCode::Enter) || is_key_pressed(KeyCode::Space) || is_key_pressed(KeyCode::Escape) {
@@ -460,7 +478,7 @@ impl App {
     fn desired_music(&self) -> Music {
         match self.state {
             GameState::MainMenu | GameState::LevelSelect | GameState::Settings | GameState::Paused
-            | GameState::LevelComplete | GameState::Shop | GameState::GameOver | GameState::Victory => {
+            | GameState::Intro | GameState::LevelComplete | GameState::Shop | GameState::GameOver | GameState::Victory => {
                 Music::Menu
             }
             GameState::Playing => {
@@ -531,6 +549,7 @@ impl App {
             GameState::Settings => self.draw_settings(view_w, view_h, rt),
             GameState::Paused => self.draw_gameplay(view_w, view_h, rt, GameplayDraw::Paused),
             GameState::Playing => self.draw_gameplay(view_w, view_h, rt, GameplayDraw::Playing),
+            GameState::Intro => self.draw_intro(view_w, view_h, rt),
             GameState::LevelComplete => self.draw_gameplay(view_w, view_h, rt, GameplayDraw::LevelComplete),
             GameState::Shop => self.draw_gameplay(view_w, view_h, rt, GameplayDraw::Shop),
             GameState::GameOver => self.draw_gameplay(view_w, view_h, rt, GameplayDraw::GameOver),
@@ -609,6 +628,33 @@ impl App {
         set_default_camera();
     }
 
+    fn draw_intro(&self, w: f32, h: f32, rt: Option<RenderTarget>) {
+        Self::set_screen_camera(rt, w, h);
+        clear_background(BG_COLOR);
+        self.draw_texture_full(self.assets.menu_background(), w, h);
+        self.draw_title(w, 45.0);
+
+        // A centered, static panel holding the gem story (text-only per §19).
+        // The default font lacks some glyphs, so the copy avoids em-dashes etc.
+        let panel = Rect::new(w * 0.16, 230.0, w * 0.68, 320.0);
+        ui::draw_panel(&self.assets, panel);
+        let lines = [
+            "Deep in the excavation you found a priceless gem.",
+            "The moment you lifted it, the ceiling gave way,",
+            "and the ancient lizard-beasts below woke.",
+            "",
+            "Dig your way to the surface before they reach you.",
+            "Not every rock will break...",
+        ];
+        let mut y = panel.y + 44.0;
+        for line in lines {
+            centered_text(line, w, y, 24.0, WHITE);
+            y += 40.0;
+        }
+        centered_text("Press Enter to begin", w, panel.y + panel.h - 40.0, 24.0, YELLOW);
+        set_default_camera();
+    }
+
     fn draw_level_select(&self, w: f32, h: f32, rt: Option<RenderTarget>) {
         Self::set_screen_camera(rt, w, h);
         clear_background(BG_COLOR);
@@ -619,9 +665,18 @@ impl App {
             Menu::LevelSelect(ls) => (ls.selection, ls.level_count, ls.unlocked),
             _ => (0, 0, 0),
         };
-        let start_y = 220.0;
+        // Auto-fit the row spacing so the whole level list (up to 10+ rows) fits
+        // between the title and the footer without spilling off the screen. When
+        // few levels exist the spacing relaxes to a comfortable 56px; when many,
+        // it tightens so the last row (and the footer) stay on screen.
+        let start_y = 200.0;
+        let footer_y = h - 60.0;
+        let count = count.max(1);
+        let spacing = ((footer_y - start_y) / count as f32).clamp(36.0, 56.0);
+        let btn_h = (spacing - 10.0).clamp(30.0, 46.0);
+        let btn_w = 340.0;
         for i in 0..count {
-            let y = start_y + i as f32 * 56.0;
+            let y = start_y + i as f32 * spacing;
             let locked = i + 1 > unlocked;
             let state = if locked {
                 ButtonState::Disabled
@@ -630,8 +685,6 @@ impl App {
             } else {
                 ButtonState::Normal
             };
-            let btn_w = 340.0;
-            let btn_h = 46.0;
             ui::draw_button(&self.assets, Rect::new((w - btn_w) / 2.0, y, btn_w, btn_h), state);
             let label = if locked {
                 format!("Level {}  (locked)", i + 1)
@@ -645,7 +698,7 @@ impl App {
             } else {
                 WHITE
             };
-            centered_text(&label, w, y + btn_h / 2.0 + 8.0, 22.0, color);
+            centered_text(&label, w, y + btn_h / 2.0 + 6.0, if btn_h >= 40.0 { 22.0 } else { 20.0 }, color);
         }
 
         centered_text("Enter: play    Esc: back", w, h - 40.0, 18.0, LIGHTGRAY);
@@ -925,6 +978,7 @@ impl App {
                 self.state = GameState::LevelSelect;
                 self.menu = Menu::LevelSelect(menu::LevelSelect::new(self.map_configs.len(), self.run.unlocked()));
             }
+            "intro" => self.state = GameState::Intro,
             "settings" => {
                 self.state = GameState::Settings;
                 self.menu = Menu::Settings(menu::SettingsScreen::new(MenuSource::Main));

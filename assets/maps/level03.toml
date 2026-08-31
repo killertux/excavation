@@ -1,0 +1,17 @@
+# Level 3 — the pressure ramps. More unmineable rock, slightly faster beasts
+# that dig a touch quicker. Seeded so the layout is reproducible for testing.
+width = 30
+height = 20
+
+unmineable_count = 90
+gold_count = 10
+beast_count = 1
+beast_speed_multiplier = 1.05
+beast_mining_time_multiplier = 0.95
+
+start = { x = 15, y = 19 }
+exit  = { x = 24, y = 0 }
+
+seed = 303
+
+structures = [[12, 5], [13, 5], [14, 5], [12, 6], [13, 6], [14, 6]]

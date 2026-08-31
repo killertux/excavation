@@ -1,0 +1,15 @@
+# Level 8 — three beasts close in. Dense rock, a large structure to route
+# around, and a sideways exit. Seedless: random every run.
+width = 36
+height = 26
+
+unmineable_count = 330
+gold_count = 14
+beast_count = 3
+beast_speed_multiplier = 1.20
+beast_mining_time_multiplier = 0.80
+
+start = { x = 18, y = 25 }
+exit  = { x = 3,  y = 0 }
+
+structures = [[22, 9], [23, 9], [24, 9], [25, 9], [26, 9], [22, 10], [23, 10], [24, 10], [25, 10], [26, 10]]

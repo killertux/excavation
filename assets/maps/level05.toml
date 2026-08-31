@@ -1,0 +1,17 @@
+# Level 5 — two beasts now hunt you. More unmineable rock, more gold to
+# encourage digging (and risk). Large structure. Seeded for reproducibility.
+width = 32
+height = 22
+
+unmineable_count = 170
+gold_count = 12
+beast_count = 2
+beast_speed_multiplier = 1.10
+beast_mining_time_multiplier = 0.90
+
+start = { x = 24, y = 21 }
+exit  = { x = 4,  y = 0 }
+
+seed = 505
+
+structures = [[18, 6], [19, 6], [20, 6], [21, 6], [18, 7], [19, 7], [20, 7], [21, 7]]

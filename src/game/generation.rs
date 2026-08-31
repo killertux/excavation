@@ -419,4 +419,38 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn all_map_order_levels_generate() {
+        // The release ships a full level order; every entry must parse, validate,
+        // generate with its `unmineable_count`, and be solvable. This is the
+        // M8 authoring guard across `assets/game.toml`'s `[map_order]`.
+        let game_toml = std::fs::read_to_string("assets/game.toml")
+            .unwrap_or_else(|e| panic!("read assets/game.toml: {e}"));
+        let game = crate::config::game::GameConfig::from_toml(&game_toml)
+            .unwrap_or_else(|e| panic!("assets/game.toml: {e}"));
+        assert!(
+            game.map_order.files.len() >= 10,
+            "release should ship at least 10 levels, got {}",
+            game.map_order.files.len()
+        );
+
+        for path in &game.map_order.files {
+            let toml = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("read {path}: {e}"));
+            let cfg = MapConfig::from_toml(&toml).unwrap_or_else(|e| panic!("{path}: {e}"));
+            let seed = resolve_seed(&cfg);
+            let map = generate(&cfg, seed).unwrap_or_else(|e| panic!("{path}: {e}"));
+            assert_eq!(map.count(Tile::Unmineable), cfg.unmineable_count, "{path}");
+            let start = map.start_pos();
+            let exit = map.exit_pos();
+            assert!(
+                pathfinding::has_path(
+                    (start.0 as i32, start.1 as i32),
+                    (exit.0 as i32, exit.1 as i32),
+                    |x, y| matches!(map.tile(x, y), Tile::Mineable | Tile::Dirt)
+                ),
+                "{path} must be solvable"
+            );
+        }
+    }
 }

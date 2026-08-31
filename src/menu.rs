@@ -249,6 +249,13 @@ impl Pause {
     }
 }
 
+/// Whether a menu action should route to the story intro. A brand-new run
+/// (`NewGame`) shows the intro; `Continue` and level-select `StartLevel` skip it
+/// so a returning/replaying player goes straight to the action.
+pub fn shows_intro(action: MenuAction) -> bool {
+    matches!(action, MenuAction::NewGame)
+}
+
 /// The currently-active menu screen (meaningful only while in a menu state).
 #[derive(Debug, Clone, Copy)]
 pub enum Menu {
@@ -402,5 +409,19 @@ mod tests {
         assert_eq!(menu.update(&key(|i| i.enter = true)), MenuAction::NewGame);
         let mut menu = Menu::Pause(Pause::new());
         assert_eq!(menu.update(&key(|i| i.escape = true)), MenuAction::Resume);
+    }
+
+    #[test]
+    fn shows_intro_only_for_a_fresh_run() {
+        // The story intro is shown only on a brand-new run; Continue and level
+        // select (StartLevel) bypass it, as do every other menu action.
+        assert!(shows_intro(MenuAction::NewGame));
+        assert!(!shows_intro(MenuAction::Continue));
+        assert!(!shows_intro(MenuAction::StartLevel(2)));
+        assert!(!shows_intro(MenuAction::OpenLevelSelect));
+        assert!(!shows_intro(MenuAction::OpenSettings));
+        assert!(!shows_intro(MenuAction::Resume));
+        assert!(!shows_intro(MenuAction::RestartLevel));
+        assert!(!shows_intro(MenuAction::None));
     }
 }

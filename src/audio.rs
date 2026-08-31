@@ -63,13 +63,15 @@ pub enum Sfx {
     GameOver,
     /// One-shot on a successful shop purchase.
     Purchase,
+    /// One-shot story beat: the gem is found (played on the M8 intro screen).
+    GemPickup,
     /// One-shot on menu navigation/activation.
     UiClick,
 }
 
 impl Sfx {
     /// Every sfx in declaration (index) order, used to load them at boot.
-    pub const ALL: [Sfx; 13] = [
+    pub const ALL: [Sfx; 14] = [
         Sfx::Dig,
         Sfx::BeastDig,
         Sfx::RockBreak,
@@ -82,6 +84,7 @@ impl Sfx {
         Sfx::LevelComplete,
         Sfx::GameOver,
         Sfx::Purchase,
+        Sfx::GemPickup,
         Sfx::UiClick,
     ];
 
@@ -100,6 +103,7 @@ impl Sfx {
             Sfx::LevelComplete => "assets/audio/sfx/sfx_level_complete.wav",
             Sfx::GameOver => "assets/audio/sfx/sfx_game_over.wav",
             Sfx::Purchase => "assets/audio/sfx/sfx_purchase.wav",
+            Sfx::GemPickup => "assets/audio/sfx/sfx_gem_pickup.wav",
             Sfx::UiClick => "assets/audio/sfx/sfx_ui_click.wav",
         }
     }
@@ -252,6 +256,7 @@ mod tests {
             Sfx::LevelComplete,
             Sfx::GameOver,
             Sfx::Purchase,
+            Sfx::GemPickup,
             Sfx::UiClick,
         ] {
             assert!(all.contains(&s), "all must list {s:?}");
