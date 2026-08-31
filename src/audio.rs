@@ -34,9 +34,8 @@ impl Music {
     }
 }
 
-/// One-shot (occasionally looping) sound effects. `GemPickup` (M8 story gem) is
-/// deliberately deferred: there is no game object for it yet, so it is not a
-/// variant here and its asset stays unused for now.
+/// One-shot (occasionally looping) sound effects. `GemPickup` is the M8 story
+/// beat: it plays once on the intro screen when a brand-new run begins.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Sfx {
     /// Continuous loop while the player mines (suppressed during Super Pick).
