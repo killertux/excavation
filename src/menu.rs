@@ -4,7 +4,8 @@
 //! that the `App` fills with edge-triggered key presses and then executes. This
 //! keeps all menu logic free of GPU/input polling so it is fully unit-testable.
 
-/// Edge-triggered menu input booleans, filled by the app from key presses.
+/// Edge-triggered menu input, filled by the app from key presses (and, if the
+/// pointer is supported by the caller, mouse hover/click) each frame.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct MenuInput {
     pub up: bool,
@@ -13,6 +14,10 @@ pub struct MenuInput {
     pub right: bool,
     pub enter: bool,
     pub escape: bool,
+    /// The cell the pointer hovers over this frame, if any (moves the cursor).
+    pub hover: Option<usize>,
+    /// The cell left-clicked this frame, if any (same as pressing Enter on it).
+    pub click: Option<usize>,
 }
 
 /// An action a menu screen requests; the `App` interprets and executes it.
@@ -98,6 +103,18 @@ impl MainMenu {
         if self.selection >= n {
             self.selection = n - 1;
         }
+        // Pointer hover moves the cursor; clicking a cell activates it (Enter).
+        if let Some(i) = input.hover
+            && i < n
+        {
+            self.selection = i;
+        }
+        if let Some(i) = input.click
+            && i < n
+        {
+            self.selection = i;
+            return self.activate();
+        }
         if input.up {
             self.selection = (self.selection + n - 1) % n;
         }
@@ -105,15 +122,20 @@ impl MainMenu {
             self.selection = (self.selection + 1) % n;
         }
         if input.enter {
-            return match self.item_at(self.selection) {
-                Some(MainMenuItem::Play) => MenuAction::NewGame,
-                Some(MainMenuItem::Continue) => MenuAction::Continue,
-                Some(MainMenuItem::LevelSelect) => MenuAction::OpenLevelSelect,
-                Some(MainMenuItem::Settings) => MenuAction::OpenSettings,
-                Some(MainMenuItem::Quit) | None => MenuAction::Quit,
-            };
+            return self.activate();
         }
         MenuAction::None
+    }
+
+    /// The action for the currently-selected entry (Enter/click activation).
+    fn activate(&self) -> MenuAction {
+        match self.item_at(self.selection) {
+            Some(MainMenuItem::Play) => MenuAction::NewGame,
+            Some(MainMenuItem::Continue) => MenuAction::Continue,
+            Some(MainMenuItem::LevelSelect) => MenuAction::OpenLevelSelect,
+            Some(MainMenuItem::Settings) => MenuAction::OpenSettings,
+            Some(MainMenuItem::Quit) | None => MenuAction::Quit,
+        }
     }
 }
 
@@ -146,6 +168,20 @@ impl LevelSelect {
         }
         if self.selection >= n {
             self.selection = n - 1;
+        }
+        // Pointer hover moves the cursor; clicking a level starts it (unless it's
+        // locked — a locked cell is not clickable).
+        if let Some(i) = input.hover
+            && i < n
+        {
+            self.selection = i;
+        }
+        if let Some(i) = input.click
+            && i < n
+            && !self.is_locked(i)
+        {
+            self.selection = i;
+            return MenuAction::StartLevel(i);
         }
         if input.up {
             self.selection = (self.selection + n - 1) % n;
@@ -185,6 +221,24 @@ impl SettingsScreen {
         let n = 4; // Music, SFX, Fullscreen, Back
         if self.selection >= n {
             self.selection = n - 1;
+        }
+        // Pointer hover moves the cursor. Clicking the fullscreen/back rows
+        // activates them; the volume rows are only selected (the App sets the
+        // value by the click position on the slider track).
+        if let Some(i) = input.hover
+            && i < n
+        {
+            self.selection = i;
+        }
+        if let Some(i) = input.click
+            && i < n
+        {
+            self.selection = i;
+            return match i {
+                2 => MenuAction::ToggleFullscreen,
+                3 => MenuAction::Back,
+                _ => MenuAction::None,
+            };
         }
         if input.up {
             self.selection = (self.selection + n - 1) % n;
@@ -236,6 +290,18 @@ impl Pause {
         if self.selection >= n {
             self.selection = n - 1;
         }
+        // Pointer hover moves the cursor; clicking a row activates it (Enter).
+        if let Some(i) = input.hover
+            && i < n
+        {
+            self.selection = i;
+        }
+        if let Some(i) = input.click
+            && i < n
+        {
+            self.selection = i;
+            return self.activate();
+        }
         if input.up {
             self.selection = (self.selection + n - 1) % n;
         }
@@ -243,19 +309,24 @@ impl Pause {
             self.selection = (self.selection + 1) % n;
         }
         if input.enter {
-            return match self.selection {
-                0 => MenuAction::Resume,
-                1 => MenuAction::RestartLevel,
-                2 => MenuAction::Save,
-                3 => MenuAction::OpenSettings,
-                4 => MenuAction::SaveAndQuitToMenu,
-                _ => MenuAction::None,
-            };
+            return self.activate();
         }
         if input.escape {
             return MenuAction::Resume;
         }
         MenuAction::None
+    }
+
+    /// The action for the currently-selected row.
+    fn activate(&self) -> MenuAction {
+        match self.selection {
+            0 => MenuAction::Resume,
+            1 => MenuAction::RestartLevel,
+            2 => MenuAction::Save,
+            3 => MenuAction::OpenSettings,
+            4 => MenuAction::SaveAndQuitToMenu,
+            _ => MenuAction::None,
+        }
     }
 }
 
@@ -472,5 +543,77 @@ mod tests {
         assert!(!shows_intro(MenuAction::Resume));
         assert!(!shows_intro(MenuAction::RestartLevel));
         assert!(!shows_intro(MenuAction::None));
+    }
+
+    #[test]
+    fn menu_input_defaults_pointer_to_none() {
+        let i = MenuInput::default();
+        assert_eq!(i.hover, None);
+        assert_eq!(i.click, None);
+    }
+
+    #[test]
+    fn main_menu_pointer_hover_moves_cursor_and_click_activates() {
+        // With a save, the items are Play/Continue/LevelSelect/Settings/Quit, so
+        // index 3 is Settings.
+        let mut m = MainMenu::new(true);
+        assert_eq!(m.update(&key(|i| i.hover = Some(3))), MenuAction::None);
+        assert_eq!(m.selection, 3, "hover moves the cursor");
+        assert_eq!(
+            m.update(&key(|i| i.click = Some(3))),
+            MenuAction::OpenSettings
+        );
+    }
+
+    #[test]
+    fn main_menu_pointer_click_out_of_range_is_noop() {
+        let mut m = MainMenu::new(false); // 4 items
+        assert_eq!(m.update(&key(|i| i.click = Some(99))), MenuAction::None);
+        assert_eq!(m.selection, 0, "an out-of-range pointer click does nothing");
+        assert_eq!(m.update(&key(|i| i.hover = Some(99))), MenuAction::None);
+        assert_eq!(m.selection, 0, "an out-of-range hover does nothing");
+    }
+
+    #[test]
+    fn level_select_pointer_hover_and_locked_click() {
+        // 3 levels, 1 unlocked: index 0 playable, 1/2 locked.
+        let mut ls = LevelSelect::new(3, 1);
+        assert_eq!(ls.update(&key(|i| i.hover = Some(2))), MenuAction::None);
+        assert_eq!(ls.selection, 2, "hover moves onto a locked level");
+        // Clicking a locked level does nothing.
+        assert_eq!(ls.update(&key(|i| i.click = Some(2))), MenuAction::None);
+        assert_eq!(ls.selection, 2);
+        // Clicking the unlocked level starts it.
+        assert_eq!(
+            ls.update(&key(|i| i.click = Some(0))),
+            MenuAction::StartLevel(0)
+        );
+    }
+
+    #[test]
+    fn settings_pointer_click_activates_fullscreen_and_back() {
+        let mut s = SettingsScreen::new(MenuSource::Main);
+        assert_eq!(s.update(&key(|i| i.hover = Some(2))), MenuAction::None);
+        assert_eq!(s.selection, 2);
+        // Clicking the fullscreen row toggles; the back row returns Back.
+        assert_eq!(
+            s.update(&key(|i| i.click = Some(2))),
+            MenuAction::ToggleFullscreen
+        );
+        assert_eq!(s.update(&key(|i| i.click = Some(3))), MenuAction::Back);
+        // Clicking a volume row only selects it (no action).
+        assert_eq!(s.update(&key(|i| i.click = Some(0))), MenuAction::None);
+        assert_eq!(s.selection, 0);
+    }
+
+    #[test]
+    fn pause_pointer_click_activates_row() {
+        let mut p = Pause::new();
+        assert_eq!(p.update(&key(|i| i.click = Some(2))), MenuAction::Save);
+        assert_eq!(p.selection, 2);
+        assert_eq!(
+            p.update(&key(|i| i.click = Some(4))),
+            MenuAction::SaveAndQuitToMenu
+        );
     }
 }

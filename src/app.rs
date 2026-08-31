@@ -191,19 +191,73 @@ impl App {
 
     // ---- Menu layer ------------------------------------------------------
 
-    /// Collect menu input and run it through the active screen.
+    /// Collect menu input (keyboard + pointer) and run it through the active
+    /// screen.
     fn update_menu(&mut self, _dt: f32) {
-        let input = menu_input();
+        let w = screen_width();
+        let h = screen_height();
+        let mouse = mouse_pos();
+        let (hover, click) = self.pointer_for_menu(w, h, mouse);
+        let mut input = menu_input();
+        input.hover = hover;
+        input.click = click;
+        // A click on a volume slider track sets the value by its horizontal
+        // position (the pure settings screen only selects the row).
+        if self.state == GameState::Settings {
+            self.handle_settings_pointer(w, mouse);
+        }
+
         let before = menu_selection(&self.menu);
         let action = self.menu.update(&input);
         let after = menu_selection(&self.menu);
-        // A click on any selection move or activated action (the pure menu
-        // screens return `None` on a bare Up/Down selection move, so compare the
-        // pre/post selection index to catch it).
-        if action != MenuAction::None || before != after {
+        // A click on any selection move, activated action, or a pointer click
+        // (the pure menu screens return `None` on a bare Up/Down selection move,
+        // so compare the pre/post selection index to catch it).
+        if action != MenuAction::None || before != after || click.is_some() {
             self.audio.play(Sfx::UiClick);
         }
         self.apply_action(action);
+    }
+
+    /// Which menu cell the pointer hovers/clicked this frame, from the layout
+    /// rects of the active screen. The pointer is a no-op when it's not over a
+    /// button, so keyboard-only input is unaffected.
+    fn pointer_for_menu(&self, w: f32, h: f32, mouse: Vec2) -> (Option<usize>, Option<usize>) {
+        let hover = match &self.menu {
+            Menu::Main(m) => index_at(&column_rects(w, 250.0, m.items().len()), mouse),
+            Menu::LevelSelect(ls) => index_at(&level_select_rects(w, h, ls.level_count), mouse),
+            Menu::Settings(_) => index_at(&settings_rects(w), mouse),
+            Menu::Pause(_) => index_at(&column_rects(w, 170.0, 5), mouse),
+        };
+        let click = if is_mouse_button_pressed(MouseButton::Left) {
+            hover
+        } else {
+            None
+        };
+        (hover, click)
+    }
+
+    /// For the settings volume sliders, a left-click on a slider track sets the
+    /// value by the horizontal click position (row 0=music, row 1=sfx).
+    fn handle_settings_pointer(&mut self, w: f32, mouse: Vec2) {
+        if !is_mouse_button_pressed(MouseButton::Left) {
+            return;
+        }
+        let rects = settings_rects(w);
+        for (i, track) in rects.iter().take(2).enumerate() {
+            if rect_contains(*track, mouse) {
+                let t = ((mouse.x - track.x) / track.w).clamp(0.0, 1.0);
+                if i == 0 {
+                    self.settings.music_volume = t;
+                    self.audio.set_music_volume(t);
+                } else {
+                    self.settings.sfx_volume = t;
+                    self.audio.set_sfx_volume(t);
+                }
+                self.maybe_persist_settings();
+                return;
+            }
+        }
     }
 
     /// Execute a menu action.
@@ -385,10 +439,11 @@ impl App {
 
     /// The intro screen: any confirm key dismisses it and starts level 1.
     fn update_intro(&mut self) {
-        if is_key_pressed(KeyCode::Enter)
+        let confirm = is_key_pressed(KeyCode::Enter)
             || is_key_pressed(KeyCode::Space)
             || is_key_pressed(KeyCode::Escape)
-        {
+            || is_mouse_button_pressed(MouseButton::Left);
+        if confirm {
             self.state = GameState::Playing;
             self.follow_camera();
         }
@@ -396,10 +451,11 @@ impl App {
 
     fn update_level_complete(&mut self) {
         // Acknowledge the score, then head to the shop.
-        if is_key_pressed(KeyCode::Enter)
+        let confirm = is_key_pressed(KeyCode::Enter)
             || is_key_pressed(KeyCode::Space)
             || is_key_pressed(KeyCode::Escape)
-        {
+            || is_mouse_button_pressed(MouseButton::Left);
+        if confirm {
             self.shop_index = 0;
             self.state = GameState::Shop;
         }
@@ -408,6 +464,18 @@ impl App {
     fn update_shop(&mut self) {
         // The shop is the items plus a selectable "Continue" row (SHOP_CONTINUE).
         let n = SHOP_ITEMS.len() + 1;
+        // Pointer: hovering highlights a row; clicking it buys/continues.
+        let mouse = mouse_pos();
+        let hover = index_at(&shop_rects(screen_width()), mouse);
+        if let Some(i) = hover {
+            self.shop_index = i.min(n - 1);
+        }
+        if is_mouse_button_pressed(MouseButton::Left)
+            && let Some(i) = hover
+        {
+            self.activate_shop_row(i.min(n - 1));
+            return;
+        }
         if is_key_pressed(KeyCode::Up) || is_key_pressed(KeyCode::W) {
             self.shop_index = (self.shop_index + n - 1) % n;
             self.audio.play(Sfx::UiClick);
@@ -417,17 +485,7 @@ impl App {
             self.audio.play(Sfx::UiClick);
         }
         if is_key_pressed(KeyCode::Enter) || is_key_pressed(KeyCode::Space) {
-            if self.shop_index == SHOP_CONTINUE {
-                self.audio.play(Sfx::UiClick);
-                self.advance_from_shop();
-            } else {
-                let item = SHOP_ITEMS[self.shop_index];
-                if self.run.buy(item).is_ok() {
-                    self.audio.play(Sfx::Purchase);
-                } else {
-                    self.audio.play(Sfx::UiClick);
-                }
-            }
+            self.activate_shop_row(self.shop_index);
         }
         // Esc is always a shortcut to leave the shop.
         if is_key_pressed(KeyCode::Escape) {
@@ -436,13 +494,29 @@ impl App {
         }
     }
 
+    /// Buy the shop item at `index` (or continue on the Continue row).
+    fn activate_shop_row(&mut self, index: usize) {
+        if index == SHOP_CONTINUE {
+            self.audio.play(Sfx::UiClick);
+            self.advance_from_shop();
+        } else if let Some(item) = SHOP_ITEMS.get(index) {
+            if self.run.buy(*item).is_ok() {
+                self.audio.play(Sfx::Purchase);
+            } else {
+                self.audio.play(Sfx::UiClick);
+            }
+        }
+    }
+
     fn update_result(&mut self) {
         // Leaving the result screen returns to the main menu (run is kept for
-        // level-select replay; nothing is auto-saved here).
-        if is_key_pressed(KeyCode::Enter)
+        // level-select replay; nothing is auto-saved here). A mouse/click or any
+        // confirm key dismisses it.
+        let confirm = is_key_pressed(KeyCode::Enter)
             || is_key_pressed(KeyCode::Space)
             || is_key_pressed(KeyCode::Escape)
-        {
+            || is_mouse_button_pressed(MouseButton::Left);
+        if confirm {
             self.return_to_main_menu();
         }
     }
@@ -739,14 +813,11 @@ impl App {
         // between the title and the footer without spilling off the screen. When
         // few levels exist the spacing relaxes to a comfortable 56px; when many,
         // it tightens so the last row (and the footer) stay on screen.
-        let start_y = 200.0;
-        let footer_y = h - 60.0;
         let count = count.max(1);
-        let spacing = ((footer_y - start_y) / count as f32).clamp(36.0, 56.0);
-        let btn_h = (spacing - 10.0).clamp(30.0, 46.0);
-        let btn_w = 340.0;
-        for i in 0..count {
-            let y = start_y + i as f32 * spacing;
+        let (_, _, btn_h, _) = level_select_layout(h, count);
+        let rects = level_select_rects(w, h, count);
+        for (i, rect) in rects.iter().enumerate() {
+            let y = rect.y;
             let locked = i + 1 > unlocked;
             let state = if locked {
                 ButtonState::Disabled
@@ -755,11 +826,7 @@ impl App {
             } else {
                 ButtonState::Normal
             };
-            ui::draw_button(
-                &self.assets,
-                Rect::new((w - btn_w) / 2.0, y, btn_w, btn_h),
-                state,
-            );
+            ui::draw_button(&self.assets, *rect, state);
             let label = if locked {
                 format!("Level {}  (locked)", i + 1)
             } else {
@@ -797,6 +864,7 @@ impl App {
         };
         let start_y = 220.0;
         let line_h = 84.0;
+        let rects = settings_rects(w);
 
         let music_state = if selection == 0 {
             ButtonState::Hover
@@ -806,7 +874,7 @@ impl App {
         draw_text("Music Volume", w * 0.22, start_y + 34.0, 24.0, WHITE);
         ui::draw_slider(
             &self.assets,
-            Rect::new(w * 0.55, start_y + 12.0, w * 0.32, 36.0),
+            rects[0],
             self.settings.music_volume,
             music_state,
         );
@@ -817,12 +885,7 @@ impl App {
             ButtonState::Normal
         };
         draw_text("SFX Volume", w * 0.22, start_y + line_h + 34.0, 24.0, WHITE);
-        ui::draw_slider(
-            &self.assets,
-            Rect::new(w * 0.55, start_y + line_h + 12.0, w * 0.32, 36.0),
-            self.settings.sfx_volume,
-            sfx_state,
-        );
+        ui::draw_slider(&self.assets, rects[1], self.settings.sfx_volume, sfx_state);
 
         // Fullscreen toggle row.
         let fs_state = if selection == 2 {
@@ -837,13 +900,7 @@ impl App {
             24.0,
             WHITE,
         );
-        let btn_w = 200.0;
-        let btn_x = w * 0.55;
-        ui::draw_button(
-            &self.assets,
-            Rect::new(btn_x, start_y + 2.0 * line_h + 12.0, btn_w, 40.0),
-            fs_state,
-        );
+        ui::draw_button(&self.assets, rects[2], fs_state);
         let label = if self.settings.fullscreen {
             "ON"
         } else {
@@ -856,8 +913,8 @@ impl App {
         };
         centered_text(
             label,
-            btn_x + btn_w,
-            start_y + 2.0 * line_h + 12.0 + 32.0,
+            rects[2].x + rects[2].w,
+            rects[2].y + 32.0,
             24.0,
             color,
         );
@@ -868,15 +925,11 @@ impl App {
         } else {
             ButtonState::Normal
         };
-        ui::draw_button(
-            &self.assets,
-            Rect::new(w / 2.0 - 170.0, start_y + 3.0 * line_h, 340.0, 46.0),
-            back_state,
-        );
+        ui::draw_button(&self.assets, rects[3], back_state);
         centered_text(
             "Back",
             w,
-            start_y + 3.0 * line_h + 31.0,
+            rects[3].y + 31.0,
             24.0,
             if selection == 3 { YELLOW } else { WHITE },
         );
@@ -901,24 +954,23 @@ impl App {
         panel: bool,
     ) {
         let btn_w = 340.0;
-        let btn_h = 46.0;
         let line_h = 58.0;
+        let rects = column_rects(w, start_y, labels.len());
         let total = labels.len() as f32 * line_h;
-        let cx = (w - btn_w) / 2.0;
-        if panel {
-            let panel = Rect::new(cx - 24.0, start_y - 28.0, btn_w + 48.0, total + 40.0);
+        if panel && let Some(first) = rects.first() {
+            let cx = first.x;
+            let panel = Rect::new(cx - 24.0, first.y - 28.0, btn_w + 48.0, total + 40.0);
             ui::draw_panel(&self.assets, panel);
         }
-        for (i, label) in labels.iter().enumerate() {
-            let y = start_y + i as f32 * line_h;
+        for (i, (label, rect)) in labels.iter().zip(&rects).enumerate() {
             let state = if i == selected {
                 ButtonState::Hover
             } else {
                 ButtonState::Normal
             };
-            ui::draw_button(&self.assets, Rect::new(cx, y, btn_w, btn_h), state);
+            ui::draw_button(&self.assets, *rect, state);
             let color = if i == selected { YELLOW } else { WHITE };
-            centered_text(label, w, y + btn_h / 2.0 + 8.0, 24.0, color);
+            centered_text(label, w, rect.y + rect.h / 2.0 + 8.0, 24.0, color);
         }
     }
 
@@ -1201,6 +1253,89 @@ async fn load_toml(path: &str) -> String {
 }
 
 /// Collect the current frame's edge-triggered menu input.
+/// Mouse position as a `Vec2` (macroquad returns it as a tuple).
+fn mouse_pos() -> Vec2 {
+    let (x, y) = mouse_position();
+    Vec2::new(x, y)
+}
+
+/// Whether a point lies inside a rect (inclusive of the bottom/right edges).
+fn rect_contains(r: Rect, p: Vec2) -> bool {
+    p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h
+}
+
+/// The index of the first rect containing `p`, if any.
+fn index_at(rects: &[Rect], p: Vec2) -> Option<usize> {
+    rects.iter().position(|r| rect_contains(*r, p))
+}
+
+/// Button rects for a centered column (main menu, pause overlay), top at
+/// `start_y`. Mirrors `draw_button_column`'s layout so hit-testing matches.
+fn column_rects(w: f32, start_y: f32, count: usize) -> Vec<Rect> {
+    let btn_w = 340.0;
+    let btn_h = 46.0;
+    let line_h = 58.0;
+    let cx = (w - btn_w) / 2.0;
+    (0..count)
+        .map(|i| Rect::new(cx, start_y + i as f32 * line_h, btn_w, btn_h))
+        .collect()
+}
+
+/// The level-select row layout, auto-fitting the list between the title and the
+/// footer. Returns `(start_y, spacing, btn_h, btn_w)`.
+fn level_select_layout(h: f32, count: usize) -> (f32, f32, f32, f32) {
+    let start_y = 200.0;
+    let footer_y = h - 60.0;
+    let count = count.max(1);
+    let spacing = ((footer_y - start_y) / count as f32).clamp(36.0, 56.0);
+    let btn_h = (spacing - 10.0).clamp(30.0, 46.0);
+    (start_y, spacing, btn_h, 340.0)
+}
+
+/// Button rects for the level-select list. Mirrors `draw_level_select`.
+fn level_select_rects(w: f32, h: f32, count: usize) -> Vec<Rect> {
+    let (start_y, spacing, btn_h, btn_w) = level_select_layout(h, count);
+    (0..count)
+        .map(|i| {
+            Rect::new(
+                (w - btn_w) / 2.0,
+                start_y + i as f32 * spacing,
+                btn_w,
+                btn_h,
+            )
+        })
+        .collect()
+}
+
+/// The four settings rows (music, sfx, fullscreen, back) as clickable rects.
+/// Mirrors `draw_settings` (the two volume rows use the slider track rects).
+fn settings_rects(w: f32) -> [Rect; 4] {
+    let start_y = 220.0;
+    let line_h = 84.0;
+    [
+        Rect::new(w * 0.55, start_y + 12.0, w * 0.32, 36.0),
+        Rect::new(w * 0.55, start_y + line_h + 12.0, w * 0.32, 36.0),
+        Rect::new(w * 0.55, start_y + 2.0 * line_h + 12.0, 200.0, 40.0),
+        Rect::new(w / 2.0 - 170.0, start_y + 3.0 * line_h, 340.0, 46.0),
+    ]
+}
+
+/// The shop rows: the five items then the "Continue" row. Mirrors
+/// `draw_shop_overlay`'s `left`/`start_y`/`line_h` placement.
+fn shop_rects(w: f32) -> Vec<Rect> {
+    let left = w * 0.24;
+    let start_y = 190.0;
+    let line_h = 52.0;
+    let mut v = Vec::with_capacity(SHOP_ITEMS.len() + 1);
+    for i in 0..SHOP_ITEMS.len() {
+        let y = start_y + i as f32 * line_h;
+        v.push(Rect::new(left - 30.0, y - 34.0, w * 0.55, 46.0));
+    }
+    let cy = start_y + SHOP_ITEMS.len() as f32 * line_h;
+    v.push(Rect::new(left - 30.0, cy - 34.0, w * 0.55, 46.0));
+    v
+}
+
 fn menu_input() -> MenuInput {
     MenuInput {
         up: is_key_pressed(KeyCode::Up) || is_key_pressed(KeyCode::W),
@@ -1209,6 +1344,8 @@ fn menu_input() -> MenuInput {
         right: is_key_pressed(KeyCode::Right) || is_key_pressed(KeyCode::D),
         enter: is_key_pressed(KeyCode::Enter) || is_key_pressed(KeyCode::Space),
         escape: is_key_pressed(KeyCode::Escape),
+        // Pointer is filled by the App from the button hit-boxes each frame.
+        ..Default::default()
     }
 }
 
@@ -1470,5 +1607,60 @@ mod tests {
         assert_eq!(burst_frame(1.0, frames), 5);
         assert_eq!(burst_frame(-0.1, frames), 0);
         assert_eq!(burst_frame(1.5, frames), 5);
+    }
+
+    // ---- Pointer layout / hit-testing (mouse in the GUI) -----------------
+
+    #[test]
+    fn rect_contains_is_inclusive_and_index_at_maps_points() {
+        let rects = column_rects(1280.0, 250.0, 4);
+        assert_eq!(rects.len(), 4);
+        // A centered column: buttons are 340x46, 58 px apart, cx=470.
+        assert_eq!(rects[0].x, 470.0);
+        assert_eq!(rects[0].y, 250.0);
+        assert_eq!(rects[1].y, 308.0);
+        // The top-left corner of button 0 is inside; a point just outside isn't.
+        assert_eq!(index_at(&rects, Vec2::new(470.0, 250.0)), Some(0));
+        assert_eq!(index_at(&rects, Vec2::new(470.0, 308.0)), Some(1));
+        assert_eq!(index_at(&rects, Vec2::new(10.0, 10.0)), None);
+        assert!(rect_contains(
+            rects[0],
+            Vec2::new(rects[0].x + rects[0].w, rects[0].y + rects[0].h)
+        ));
+    }
+
+    #[test]
+    fn level_select_rects_fit_ten_levels_above_the_footer() {
+        let rects = level_select_rects(1280.0, 720.0, 10);
+        assert_eq!(rects.len(), 10);
+        // Every row sits above the footer (h - 60) and stays on screen.
+        for r in &rects {
+            assert!(r.y + r.h <= 720.0 - 40.0);
+        }
+        // Rows are vertically ordered and distinct.
+        for (a, b) in rects.iter().zip(rects.iter().skip(1)) {
+            assert!(b.y > a.y, "rows must not overlap");
+        }
+    }
+
+    #[test]
+    fn settings_rects_are_the_four_rows() {
+        let rects = settings_rects(1280.0);
+        assert_eq!(rects.len(), 4);
+        // The two volume row rects are the slider tracks (music & sfx).
+        assert_eq!(rects[0].w, 1280.0 * 0.32);
+        assert_eq!(rects[1].w, rects[0].w);
+        assert!(rects[1].y > rects[0].y);
+    }
+
+    #[test]
+    fn shop_rects_cover_all_items_and_a_continue_row() {
+        let rects = shop_rects(1280.0);
+        assert_eq!(rects.len(), SHOP_ITEMS.len() + 1);
+        // Clicking the top-left of each row maps back to that row's index.
+        for (i, r) in rects.iter().enumerate() {
+            let p = Vec2::new(r.x + 10.0, r.y + 10.0);
+            assert_eq!(index_at(&rects, p), Some(i), "row {i}");
+        }
     }
 }

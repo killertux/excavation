@@ -59,23 +59,31 @@ play — this is expected browser behavior, not a bug.
 | Sticky Smell (consumable, disables beast pathfinding) | `2` or `E` |
 | Pause | `Esc` |
 
+Gameplay is keyboard-only; **mouse is supported throughout the GUI** (menus,
+shop, and the text overlays). In the menus and shop, hovering a row highlights
+it and clicking it activates it (same as pressing Enter). The settings sliders
+can be set by clicking anywhere along a track.
+
 ### Menus
 
-| Action | Keys |
-| --- | --- |
-| Move selection | `W/Up`, `S/Down` |
-| Activate / continue | `Enter` or `Space` |
-| Back / resume | `Esc` |
-| Settings: adjust volume | `A/Left`, `D/Right` |
-| Settings: toggle fullscreen | `Enter` on the fullscreen row |
+| Action | Keys | Mouse |
+| --- | --- | --- |
+| Move selection | `W/Up`, `S/Down` | hover a row |
+| Activate / continue | `Enter` or `Space` | click a row |
+| Back / resume | `Esc` | click the Back row |
+| Settings: adjust volume | `A/Left`, `D/Right` | click anywhere on the slider track |
+| Settings: toggle fullscreen | `Enter` on the fullscreen row | click the fullscreen button |
 
 ### Shop
 
-| Action | Keys |
-| --- | --- |
-| Move selection | `W/Up`, `S/Down` |
-| Buy / continue to next level | `Enter` or `Space` |
-| Skip to next level | `Esc` |
+| Action | Keys | Mouse |
+| --- | --- | --- |
+| Move selection | `W/Up`, `S/Down` | hover a row |
+| Buy / continue to next level | `Enter` or `Space` | click a row |
+| Skip to next level | `Esc` | click the Continue row |
+
+The intro, level-complete, game-over and victory screens also accept a click
+anywhere to continue.
 
 ---
 
