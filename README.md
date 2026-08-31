@@ -148,15 +148,17 @@ DSH_SCREEN=levelselect cargo run -- --screenshot target/shots/levelselect.png
 ## Levels
 
 There are **10 levels** (`assets/maps/level01.toml` … `level10.toml`), listed in
-`assets/game.toml` under `[map_order]`. Difficulty increases monotonically: more
-unmineable rock, more (and faster) beasts, bigger maps, and more unbreakable
-structures. `start`/`exit` vary per map.
+`assets/game.toml` under `[map_order]`. Difficulty increases monotonically: the
+share of dig-look rock that is **unmineable** (a fake-out you cannot dig) ramps
+linearly from ~1/4 on level 1 to ~3/4 on level 10, with more (and faster) beasts,
+bigger maps, and more unbreakable structures. `start`/`exit` vary per map.
 
-Each TOML sets the map size, the fixed `unmineable_count`, `gold_count`,
-`beast_count`, the `beast_speed_multiplier`/`beast_mining_time_multiplier`, the
-`start`/`exit` gaps (both on the border), an optional `seed`, and interior
-`structures`. A level is valid when `gold_count + unmineable_count +
-interior_structures <= interior`; maps without a `seed` randomize every run.
+Each TOML sets the map size, the fixed `unmineable_count` (chosen to hit that
+ramp against the interior-minus-structures rock pool), `gold_count`, `beast_count`,
+the `beast_speed_multiplier`/`beast_mining_time_multiplier`, the `start`/`exit`
+gaps (both on the border), an optional `seed`, and interior `structures`. A level
+is valid when `gold_count + unmineable_count + interior_structures <= interior`;
+maps without a `seed` randomize every run.
 
 `cargo test` includes an authoring guard
 (`game::generation::tests::all_map_order_levels_generate`) that loads every level
@@ -172,6 +174,13 @@ times, upgrade cost curves, shop prices/lives, consumable costs and durations, a
 scoring (`[score]`). `[map_order]` lists the level files in play order. The values
 are a playtest-informed starting point — tune them freely; they require no code
 changes.
+
+Gold balance: each gold pickup is worth **15** gold (`game::level::GOLD_PER_PICKUP`,
+in code), so a level's ~8–18 nuggets are worth 120–270 gold — enough to buy the
+first upgrade early and pace progression across the run, while a perfect run that
+grabbed every nugget lands just under the total upgrade cost (so upgrades don't
+trivialize). `[score].gold_multiplier` was lowered to `1.0` (1 point per gold) so
+the richer gold rewards don't swamp the time-based score.
 
 ---
 

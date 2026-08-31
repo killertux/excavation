@@ -1,9 +1,10 @@
-# Level 3 — the pressure ramps. More unmineable rock, slightly faster beasts
-# that dig a touch quicker. Seeded so the layout is reproducible for testing.
+# Level 3 — the pressure ramps. ~0.36 of the diggable-look rock is a fake-out
+# (Unmineable); beasts are slightly faster and dig a touch quicker. Seeded so the
+# layout is reproducible for testing.
 width = 30
 height = 20
 
-unmineable_count = 90
+unmineable_count = 180
 gold_count = 10
 beast_count = 1
 beast_speed_multiplier = 1.05

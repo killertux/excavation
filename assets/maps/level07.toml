@@ -1,9 +1,10 @@
-# Level 7 — near the top of the curve: dense rock, fast beasts, a big central
-# structure to route around. Seeded for a predictable challenge.
+# Level 7 — near the top of the curve: dense rock (~0.58 fake-out), fast
+# beasts, and a big central structure to route around. Seeded for a predictable
+# challenge.
 width = 34
 height = 24
 
-unmineable_count = 270
+unmineable_count = 402
 gold_count = 14
 beast_count = 2
 beast_speed_multiplier = 1.20

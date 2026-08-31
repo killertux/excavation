@@ -1,10 +1,10 @@
-# Level 2 — slightly harder. More unmineable rocks and a bigger unbreakable
-# structure. No `seed` field, so the map randomizes fresh on every run (proving
-# the random-seed path works). The loader handles multiple files.
+# Level 2 — slightly harder. ~0.31 of the diggable-look rock is a fake-out
+# (Unmineable) and there is a bigger unbreakable structure. No `seed` field, so
+# the map randomizes fresh on every run (proving the random-seed path works).
 width = 30
 height = 20
 
-unmineable_count = 60
+unmineable_count = 152
 gold_count = 8
 beast_count = 1
 beast_speed_multiplier = 1.0

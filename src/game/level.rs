@@ -16,6 +16,14 @@ use super::player::Player;
 use crate::audio::Sfx;
 use crate::config::map::MapConfig;
 
+/// Gold a single pickup grants. Tuned so the extra gold found while digging is
+/// worth bending toward: a level with ~10 nuggets yields ~150 gold, which buys
+/// the first upgrade and starts the second, pacing progression across the run.
+/// (Picked as the middle of the requested 10–20 range: a perfect run that
+/// collected every nugget lands just under the total upgrade cost, so upgrades
+/// stay meaningful rather than trivially maxed.)
+pub const GOLD_PER_PICKUP: u32 = 15;
+
 /// The outcome of one level-simulation step.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LevelEvent {
@@ -218,7 +226,7 @@ impl Level {
         for p in self.pickups.drain(..) {
             if movement::hits(player_pos, p.pos) {
                 if p.kind == PickupKind::Gold {
-                    collected += 1;
+                    collected += GOLD_PER_PICKUP;
                     self.sound_events.push(Sfx::GoldPickup);
                 }
             } else {
@@ -606,8 +614,8 @@ mod tests {
         lv.update(Vec2::ZERO, 1.0 / 60.0);
         assert!(lv.pickups.is_empty(), "overlap collects the pickup");
         assert_eq!(
-            lv.gold_collected, 1,
-            "collected gold is banked in the attempt"
+            lv.gold_collected, GOLD_PER_PICKUP,
+            "a gold pickup grants its full value"
         );
     }
 

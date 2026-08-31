@@ -1,10 +1,10 @@
-# Level 1 — easy intro map. A seeded, reproducible level with few unmineable
-# rocks and a small unbreakable-rock structure. The player must dig from the
-# start gap (bottom) to the exit gap (top).
+# Level 1 — easy intro map. A seeded, reproducible level where ~0.25 of the
+# diggable-look rock is a fake-out (Unmineable), plus a small unbreakable-rock
+# structure. The player must dig from the start gap (bottom) to the exit gap (top).
 width = 30
 height = 20
 
-unmineable_count = 20
+unmineable_count = 125
 gold_count = 8
 beast_count = 1
 beast_speed_multiplier = 1.0

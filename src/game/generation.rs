@@ -409,6 +409,51 @@ mod tests {
     }
 
     #[test]
+    fn unmineable_ratio_ramps_from_a_quarter_to_three_quarters() {
+        // The difficulty design: the fraction of dig-look rock that is actually
+        // unmineable (a fake-out) ramps linearly from ~1/4 on the easiest level
+        // to ~3/4 on the hardest, scaling for the levels in between. The pool is
+        // the interior minus interior structures (corridor cells stay mineable,
+        // so they never shift the ratio), and `unmineable_count` is fixed, so
+        // the ratio is deterministic per level config even for seedless maps.
+        let game_toml = std::fs::read_to_string("assets/game.toml")
+            .unwrap_or_else(|e| panic!("read assets/game.toml: {e}"));
+        let game = crate::config::game::GameConfig::from_toml(&game_toml)
+            .unwrap_or_else(|e| panic!("assets/game.toml: {e}"));
+        let n = game.map_order.files.len();
+        assert!(
+            n >= 2,
+            "the ramp needs at least two levels to interpolate, got {n}"
+        );
+
+        let mut prev = 0.0f32;
+        for (i, path) in game.map_order.files.iter().enumerate() {
+            let toml = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("read {path}: {e}"));
+            let cfg = MapConfig::from_toml(&toml).unwrap_or_else(|e| panic!("{path}: {e}"));
+            let seed = resolve_seed(&cfg);
+            let map = generate(&cfg, seed).unwrap_or_else(|e| panic!("{path}: {e}"));
+            let mineable = map.count(Tile::Mineable);
+            let unmineable = map.count(Tile::Unmineable);
+            let pool = mineable + unmineable;
+            assert!(pool > 0, "{path}: empty dig-pool");
+            let ratio = unmineable as f32 / pool as f32;
+
+            // Expected linearly interpolated ratio at this index across the ramp.
+            let expected = 0.25 + (i as f32) / ((n - 1) as f32) * 0.5;
+            let tol = 0.02;
+            assert!(
+                (ratio - expected).abs() <= tol,
+                "{path}: unmineable ratio {ratio:.3} not ~expected {expected:.3} (level index {i})"
+            );
+            assert!(
+                ratio >= prev - tol,
+                "{path}: ratio {ratio:.3} should not fall from the previous level ({prev:.3})"
+            );
+            prev = ratio;
+        }
+    }
+
+    #[test]
     fn loads_and_generates_the_committed_sample_maps() {
         for path in ["assets/maps/level01.toml", "assets/maps/level02.toml"] {
             let toml = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("read {path}: {e}"));

@@ -1,10 +1,10 @@
-# Level 9 — the second-hardest. Three fast beasts and a huge rock density, with
-# the start and exit on opposing sides. Seeded for a reproducible, deliberate
-# gauntlet.
+# Level 9 — the second-hardest. Three fast beasts and a huge rock density
+# (~0.69 fake-out), with the start and exit on opposing sides. Seeded for a
+# reproducible, deliberate gauntlet.
 width = 36
 height = 26
 
-unmineable_count = 390
+unmineable_count = 554
 gold_count = 16
 beast_count = 3
 beast_speed_multiplier = 1.25

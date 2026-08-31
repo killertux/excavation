@@ -1,9 +1,10 @@
-# Level 10 — the final gauntlet. The biggest map, the most rock, three relentless
-# beasts that dig nearly as fast as you can. Beat it and you've won.
+# Level 10 — the final gauntlet. The biggest map, the most rock (~0.75 of it a
+# fake-out), three relentless beasts that dig nearly as fast as you can. Beat it
+# and you've won.
 width = 38
 height = 28
 
-unmineable_count = 460
+unmineable_count = 688
 gold_count = 18
 beast_count = 3
 beast_speed_multiplier = 1.30

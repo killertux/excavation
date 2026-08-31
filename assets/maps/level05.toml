@@ -1,9 +1,10 @@
-# Level 5 — two beasts now hunt you. More unmineable rock, more gold to
-# encourage digging (and risk). Large structure. Seeded for reproducibility.
+# Level 5 — two beasts now hunt you. ~0.47 of the diggable-look rock is a
+# fake-out (Unmineable), with more gold to encourage digging (and risk). Large
+# structure. Seeded for reproducibility.
 width = 32
 height = 22
 
-unmineable_count = 170
+unmineable_count = 280
 gold_count = 12
 beast_count = 2
 beast_speed_multiplier = 1.10

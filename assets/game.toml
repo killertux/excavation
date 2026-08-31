@@ -33,7 +33,7 @@ duration = 5.0
 [score]
 par_time = 80.0
 time_multiplier = 10.0
-gold_multiplier = 5.0
+gold_multiplier = 1.0   # 1 point per gold collected (gold is worth 15/pickup now)
 
 [map_order]
 files = [

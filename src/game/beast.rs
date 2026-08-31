@@ -207,7 +207,16 @@ impl Beast {
     }
 
     fn act_charge(&mut self, player_pos: Vec2, map: &Map, dt: f32) {
-        let blocked = self.step_toward(player_pos, map, dt);
+        // Aim at the player's *cell centre*, not its raw pixel position. The
+        // initial `decide` saw a straight line of clear floor between the two
+        // *cells*, but the player's pixel may sit off that line (e.g. near the
+        // top of its cell). Chasing the raw pixel would drag the beast
+        // diagonally into the rocks flanking the corridor, and since the centre
+        // line stays "clear" it would then grind there forever. Aiming at the
+        // cell centre keeps the charge true to the axis-aligned line that made
+        // it valid. Sliding (below) covers the residual off-centre drift.
+        let target = cell_center(cell_of(player_pos));
+        let blocked = self.step_toward(target, map, dt, true);
         if blocked {
             // The straight path is no longer clear; re-plan next frame.
             self.replan_timer = 0.0;
@@ -234,7 +243,7 @@ impl Beast {
             return;
         }
 
-        let blocked = self.step_toward(cell_center(target), map, dt);
+        let blocked = self.step_toward(cell_center(target), map, dt, !target_rock);
 
         if target_rock && blocked && adjacent(cell, target) {
             // Flush against a known diggable rock: start digging it.
@@ -252,14 +261,45 @@ impl Beast {
     /// Move toward `target` (world px) by up to `speed*dt`, resolving collision
     /// against solids. Returns true when the beast was blocked (moved far less
     /// than it intended to).
-    fn step_toward(&mut self, target: Vec2, map: &Map, dt: f32) -> bool {
+    ///
+    /// When `slide` is true and the direct step is blocked by a wall, the beast
+    /// also tries sliding along each free axis so it can slip around a corner it
+    /// is grinding against ("nudge a few px to the side and it carries on"),
+    /// rather than wedging. `slide` is passed `false` when the target is a
+    /// diggable rock the beast is about to dig — there it must stop and dig once
+    /// flush, not slide along the face.
+    fn step_toward(&mut self, target: Vec2, map: &Map, dt: f32, slide: bool) -> bool {
         let to = target - self.pos;
         let dist = to.length();
         if dist <= 0.001 {
             self.motion = BeastMotion::Idle;
             return false;
         }
-        self.step_dir(to / dist, map, dt)
+        let dir = to / dist;
+        let intended = self.speed * dt;
+        let start = self.pos;
+        self.step_dir(dir, map, dt);
+        let moved = (self.pos - start).length();
+        if moved >= intended * 0.25 {
+            return false; // made the intended progress on the combined axis
+        }
+
+        // Direct step is blocked. Slide along each axis independently; a corner
+        // the beast is grinding into frees up once the perpendicular axis moves.
+        if slide {
+            let mut best = moved;
+            if dir.x.abs() > 0.0 {
+                self.step_dir(Vec2::new(dir.x.signum(), 0.0), map, dt);
+                best = best.max((self.pos - start).length());
+            }
+            if dir.y.abs() > 0.0 {
+                self.step_dir(Vec2::new(0.0, dir.y.signum()), map, dt);
+                best = best.max((self.pos - start).length());
+            }
+            return best < intended * 0.25;
+        }
+
+        true
     }
 
     /// Move by `speed*dt` along the unit `dir`, resolving collision. Returns
@@ -786,6 +826,111 @@ mod tests {
         assert!(
             reached,
             "beast should reach the player via the clear dirt tunnel"
+        );
+    }
+
+    #[test]
+    fn beast_follows_a_serpentine_dirt_corridor_around_many_corners() {
+        // A 1-wide serpentine corridor (many 90-degree turns) in a sea of rock.
+        // The beast must follow it from top-left to bottom-right; a corner-snag
+        // would leave it stuck permanently. Guards the wall-slip movement so the
+        // beast always navigates corners instead of grinding into them.
+        let (w, h) = (13usize, 11usize);
+        let mut tiles = vec![Tile::Unbreakable; w * h];
+        let cs = |x: i32, y: i32| y as usize * w + x as usize;
+        // Serpentine: right across odd rows, left across even rows, joined by a
+        // single-cell down-step at the ends.
+        for y in 1..=9i32 {
+            let (start, end) = if y % 2 == 1 { (1, 9) } else { (9, 1) };
+            let step = if start < end { 1 } else { -1 };
+            let mut x = start;
+            loop {
+                tiles[cs(x, y)] = Tile::Dirt;
+                if x == end {
+                    break;
+                }
+                x += step;
+            }
+            // Join this row to the next via a down cell at the far end.
+            if y < 9 {
+                tiles[cs(end, y + 1)] = Tile::Dirt;
+            }
+        }
+        let mut map = Map {
+            width: w,
+            height: h,
+            tiles,
+            start: (1, 1),
+            exit: (9, 9),
+            gold: HashSet::new(),
+        };
+        let mut b = Beast::new(center_of((1, 1)), 140.0, 1.6, 0.25);
+        let player = center_of((9, 9));
+        let mut reached = false;
+        for _ in 0..1200 {
+            b.update(player, &mut map, 1.0 / 60.0);
+            if b.cell() == (9, 9) {
+                reached = true;
+                break;
+            }
+        }
+        assert!(reached, "beast stuck in the serpentine corridor");
+    }
+
+    #[test]
+    fn charge_targets_the_cell_centre_and_does_not_drift_into_flanking_rock() {
+        // Regression for the "beast gets stuck chasing along a clear path" bug.
+        // Beast and player share a row, so `decide` issues a straight-line Charge
+        // (the cells on the line are open). A rock juts down into the row above
+        // the corridor, and the player sits near the top of its cell. Chasing the
+        // player's raw pixel would drag the beast diagonally up so its hitbox
+        // clips that rock and it grinds; aiming at the player's *cell centre*
+        // keeps the charge on the row axis. The beast must reach the player.
+        let (w, h) = (10usize, 6usize);
+        let mut tiles = vec![Tile::Unbreakable; w * h];
+        let cs = |x: i32, y: i32| y as usize * w + x as usize;
+        // Clear a two-tall chamber (rows 1..=2).
+        for y in 1..=2i32 {
+            for x in 1..(w as i32 - 1) {
+                tiles[cs(x, y)] = Tile::Dirt;
+            }
+        }
+        // A rock hangs down into the row above the beast's row, off the charge
+        // line (row 2), at the column the beast must sweep past.
+        tiles[cs(4, 1)] = Tile::Unbreakable;
+        let mut map = Map {
+            width: w,
+            height: h,
+            tiles,
+            start: (1, 2),
+            exit: (8, 2),
+            gold: HashSet::new(),
+        };
+        let mut b = Beast::new(center_of((1, 2)), 140.0, 1.6, 0.25);
+        // Player near the top of its cell in the same row -> would otherwise
+        // pull the charge up into the flanking rock.
+        let player = Vec2::new(8.0 * TILE_SIZE + 16.0, 2.0 * TILE_SIZE + 2.0);
+        let mut reached = false;
+        // The beast's centre must never rise high enough that its 24px hitbox
+        // top enters the rock row (row 1 spans y in [32, 64)); a hitbox top < 64
+        // means the beast drifted up into the flanking rock. Staying on the row
+        // axis keeps the centre ~80 so the top stays ~68 (> 64).
+        let mut min_y = f32::MAX;
+        for _ in 0..900 {
+            b.update(player, &mut map, 1.0 / 60.0);
+            min_y = min_y.min(b.pos.y);
+            if b.cell() == (8, 2) {
+                reached = true;
+                break;
+            }
+        }
+        assert!(
+            reached,
+            "charge should sweep the row to the player without wedging on the rock above"
+        );
+        assert!(
+            min_y >= 2.0 * TILE_SIZE + 10.0,
+            "charge drifted up into the flanking rock (centre y reached {min_y})"
         );
     }
 

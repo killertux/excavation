@@ -137,8 +137,8 @@ mod tests {
         // Column x==2 is a wall everywhere except the bottom row, so a path
         // must detour around it (through row 4).
         let mut mask = [[true; 5]; 5];
-        for y in 0..4 {
-            mask[y][2] = false;
+        for row in &mut mask[..4] {
+            row[2] = false;
         }
         let path = astar((0, 0), (4, 4), grid_passable(&mask)).expect("a path exists");
         // The path must be a valid, contiguous set of cells.
@@ -160,8 +160,8 @@ mod tests {
     fn returns_none_when_fully_blocked() {
         // Whole column is a wall, so left and right halves are disconnected.
         let mut mask = [[true; 5]; 5];
-        for y in 0..5 {
-            mask[y][2] = false;
+        for row in &mut mask {
+            row[2] = false;
         }
         assert!(astar((0, 1), (4, 1), grid_passable(&mask)).is_none());
     }
@@ -170,15 +170,15 @@ mod tests {
     fn has_path_matches_astar() {
         let partial = {
             let mut m = [[true; 5]; 5];
-            for y in 0..4 {
-                m[y][2] = false;
+            for row in &mut m[..4] {
+                row[2] = false;
             }
             m
         };
         let full = {
             let mut m = [[true; 5]; 5];
-            for y in 0..5 {
-                m[y][2] = false;
+            for row in &mut m {
+                row[2] = false;
             }
             m
         };
@@ -198,8 +198,8 @@ mod tests {
     #[test]
     fn is_deterministic_for_same_input() {
         let mut mask = [[true; 5]; 5];
-        for y in 0..5 {
-            mask[y][2] = false;
+        for row in &mut mask {
+            row[2] = false;
         }
         let a = astar((0, 0), (4, 4), grid_passable(&mask));
         let b = astar((0, 0), (4, 4), grid_passable(&mask));

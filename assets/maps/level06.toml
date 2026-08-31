@@ -1,9 +1,10 @@
-# Level 6 — larger map, heavier rock density, faster beasts. The exit moves to
-# the opposite (right) side so the dig sweeps sideways. Seedless.
+# Level 6 — larger map, heavier rock density (~0.53 fake-out), faster beasts.
+# The exit moves to the opposite (right) side so the dig sweeps sideways.
+# Seedless.
 width = 34
 height = 24
 
-unmineable_count = 220
+unmineable_count = 366
 gold_count = 12
 beast_count = 2
 beast_speed_multiplier = 1.15

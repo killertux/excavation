@@ -1,9 +1,9 @@
-# Level 8 — three beasts close in. Dense rock, a large structure to route
-# around, and a sideways exit. Seedless: random every run.
+# Level 8 — three beasts close in. Dense rock (~0.64 fake-out), a large
+# structure to route around, and a sideways exit. Seedless: random every run.
 width = 36
 height = 26
 
-unmineable_count = 330
+unmineable_count = 515
 gold_count = 14
 beast_count = 3
 beast_speed_multiplier = 1.20

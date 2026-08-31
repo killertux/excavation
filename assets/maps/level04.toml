@@ -1,9 +1,9 @@
-# Level 4 — a bigger map and a large unbreakable structure. Beast speed keeps
-# climbing. Seedless: a fresh random layout every run.
+# Level 4 — a bigger map (~0.42 fake-out rock) and a large unbreakable
+# structure. Beast speed keeps climbing. Seedless: a fresh random layout every run.
 width = 32
 height = 22
 
-unmineable_count = 130
+unmineable_count = 245
 gold_count = 10
 beast_count = 1
 beast_speed_multiplier = 1.10
